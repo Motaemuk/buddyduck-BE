@@ -17,11 +17,11 @@
 - Create: `.env.example`
 - Create untracked local file: `.env`
 
-- [ ] Add MySQL service with database/user/password variables from `.env`.
-- [ ] Add `.env.example` with placeholder local development values.
-- [ ] Add ignored `.env` for this machine only.
-- [ ] Run `docker compose config`.
-- [ ] Commit: `feat: local MySQL compose 구성`
+- [x] Add MySQL service with database/user/password variables from `.env`.
+- [x] Add `.env.example` with placeholder local development values.
+- [x] Add ignored `.env` for this machine only.
+- [x] Run `docker compose config`.
+- [x] Commit: `feat: local MySQL compose 구성`
 
 ### Task 2: Flyway Dependency And Profiles
 
@@ -30,10 +30,10 @@
 - Modify: `src/main/resources/application.yml`
 - Create: `src/test/resources/application.yml`
 
-- [ ] Add Flyway dependencies for core and MySQL support.
-- [ ] Change `local` profile datasource to MySQL env values.
-- [ ] Add `test` profile using H2 so tests do not require Docker.
-- [ ] Run `./gradlew test`.
+- [x] Add Flyway dependencies for core and MySQL support.
+- [x] Change `local` profile datasource to MySQL env values.
+- [x] Add `test` profile using H2 so tests do not require Docker.
+- [x] Run `./gradlew test`.
 
 ### Task 3: Initial Schema Migration
 
@@ -41,10 +41,10 @@
 - Create: `src/main/resources/db/migration/V1__init_schema.sql`
 - Test: `src/test/java/com/buddyduck/buddyduck/domain/DomainRepositoryContextTest.java`
 
-- [ ] Add ERD-based initial MySQL schema.
-- [ ] Verify test profile starts with Flyway and repositories.
-- [ ] Run local MySQL and boot app once against MySQL.
-- [ ] Commit: `feat: Flyway migration baseline 추가`
+- [x] Add ERD-based initial MySQL schema.
+- [x] Verify test profile starts with Flyway and repositories.
+- [x] Run local MySQL and boot app once against MySQL.
+- [x] Commit: `feat: Flyway migration baseline 추가`
 
 ### Task 4: Docs And Handoff
 
@@ -54,7 +54,7 @@
 - Modify: `/Users/chataehun/inha-learn/findings.md`
 - Modify: `/Users/chataehun/inha-learn/progress.md`
 
-- [ ] Document local DB start, app boot, and health check.
-- [ ] Update root continuity files briefly.
-- [ ] Run final `./gradlew test` and `git status --short`.
-- [ ] Commit: `docs: local DB 실행 방법 정리`
+- [x] Document local DB start, app boot, and health check.
+- [x] Update root continuity files briefly.
+- [x] Run final `./gradlew test` and `git status --short`.
+- [x] Commit: `docs: local DB 실행 방법 정리`

@@ -36,4 +36,11 @@ public class Schedule extends BaseTimeEntity {
 	@Version
 	@Column(nullable = false)
 	private Integer version;
+
+	public static Schedule create(Room room) {
+		Schedule schedule = new Schedule();
+		schedule.room = room;
+		schedule.arrivalBufferMinutes = 30;
+		return schedule;
+	}
 }

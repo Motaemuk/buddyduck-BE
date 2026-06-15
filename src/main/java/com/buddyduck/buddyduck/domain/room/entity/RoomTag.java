@@ -1,7 +1,10 @@
 package com.buddyduck.buddyduck.domain.room.entity;
 
+import com.buddyduck.buddyduck.domain.concert.enums.InterestTag;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -37,6 +40,14 @@ public class RoomTag {
 	@JoinColumn(name = "room_id", nullable = false)
 	private Room room;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 50)
-	private String tag;
+	private InterestTag tag;
+
+	public static RoomTag create(Room room, InterestTag tag) {
+		RoomTag roomTag = new RoomTag();
+		roomTag.room = room;
+		roomTag.tag = tag;
+		return roomTag;
+	}
 }

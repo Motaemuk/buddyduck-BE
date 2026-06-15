@@ -52,4 +52,13 @@ public class RoomMember {
 
 	@Column(name = "joined_at", nullable = false)
 	private LocalDateTime joinedAt;
+
+	public static RoomMember create(Room room, User user, RoomMemberRole role) {
+		RoomMember member = new RoomMember();
+		member.room = room;
+		member.user = user;
+		member.role = role;
+		member.joinedAt = LocalDateTime.now();
+		return member;
+	}
 }

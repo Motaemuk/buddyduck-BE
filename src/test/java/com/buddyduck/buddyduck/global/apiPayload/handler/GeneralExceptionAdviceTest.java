@@ -27,7 +27,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 	BuddyduckApplication.class,
 	GeneralExceptionAdviceTest.ExceptionTestController.class
 })
-@AutoConfigureMockMvc
+@AutoConfigureMockMvc(addFilters = false)
 class GeneralExceptionAdviceTest {
 
 	@Autowired

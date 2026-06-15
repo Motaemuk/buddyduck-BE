@@ -7,6 +7,7 @@ import com.buddyduck.buddyduck.domain.place.dto.PlaceSearchResponse;
 import com.buddyduck.buddyduck.domain.place.dto.PlaceUpsertRequest;
 import com.buddyduck.buddyduck.domain.place.dto.PlaceUpsertResponse;
 import com.buddyduck.buddyduck.domain.place.entity.Place;
+import com.buddyduck.buddyduck.domain.place.kakao.KakaoLocalClient;
 import com.buddyduck.buddyduck.domain.place.repository.PlaceRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
@@ -22,10 +23,17 @@ import org.springframework.util.StringUtils;
 public class PlaceService {
 
 	private final PlaceRepository placeRepository;
+	private final KakaoLocalClient kakaoLocalClient;
 
 	@Transactional(readOnly = true)
 	public PlaceSearchResponse searchPlaces(String keyword, Long concertId, Long roomId) {
 		String normalizedKeyword = requireText(keyword);
+		if (kakaoLocalClient.isEnabled()) {
+			return new PlaceSearchResponse(kakaoLocalClient.searchKeyword(normalizedKeyword).stream()
+				.map(PlaceSearchItemResponse::from)
+				.toList());
+		}
+
 		List<PlaceSearchItemResponse> items = placeRepository
 			.findTop10ByNameContainingIgnoreCaseOrAddressContainingIgnoreCaseOrderByIdAsc(
 				normalizedKeyword,
@@ -41,6 +49,12 @@ public class PlaceService {
 	@Transactional(readOnly = true)
 	public GeocodeResponse geocode(String address) {
 		String normalizedAddress = requireText(address);
+		if (kakaoLocalClient.isEnabled()) {
+			return new GeocodeResponse(kakaoLocalClient.searchAddress(normalizedAddress).stream()
+				.map(GeocodeItemResponse::from)
+				.toList());
+		}
+
 		List<GeocodeItemResponse> items = placeRepository
 			.findTop10ByAddressContainingIgnoreCaseOrderByIdAsc(normalizedAddress)
 			.stream()

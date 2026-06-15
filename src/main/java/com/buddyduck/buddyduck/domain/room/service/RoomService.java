@@ -190,7 +190,7 @@ public class RoomService {
 		return new OpenChatResponse(room.getOpenChatUrl(), room.getOpenChatPassword());
 	}
 
-	Room getRoomOrThrow(Long roomId) {
+	public Room getRoomOrThrow(Long roomId) {
 		return roomRepository.findById(roomId)
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 	}
@@ -205,7 +205,7 @@ public class RoomService {
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 	}
 
-	boolean isHost(Room room, Long userId) {
+	public boolean isHost(Room room, Long userId) {
 		return room.getHostUser().getId().equals(userId);
 	}
 

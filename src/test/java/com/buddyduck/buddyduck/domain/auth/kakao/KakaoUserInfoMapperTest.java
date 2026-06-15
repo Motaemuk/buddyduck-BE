@@ -1,0 +1,87 @@
+package com.buddyduck.buddyduck.domain.auth.kakao;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.buddyduck.buddyduck.domain.auth.kakao.dto.KakaoUserInfo;
+import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
+import com.buddyduck.buddyduck.domain.user.enums.UserGender;
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+
+class KakaoUserInfoMapperTest {
+
+	private final KakaoUserInfoMapper mapper = new KakaoUserInfoMapper();
+
+	@Test
+	void Kakao_응답에서_사용자_필수_정보를_추출한다() {
+		KakaoUserInfo userInfo = mapper.map(userAttributes("12345", "duck_fan", "20~29", "female"));
+
+		assertThat(userInfo.kakaoId()).isEqualTo("12345");
+		assertThat(userInfo.nickname()).isEqualTo("duck_fan");
+		assertThat(userInfo.ageRange()).isEqualTo(AgeRange.TWENTIES);
+		assertThat(userInfo.gender()).isEqualTo(UserGender.FEMALE);
+	}
+
+	@Test
+	void 연령대는_서비스_enum으로_변환한다() {
+		assertThat(mapper.map(userAttributes("1", "teen", "10~19", "male")).ageRange())
+			.isEqualTo(AgeRange.TEENS);
+		assertThat(mapper.map(userAttributes("2", "twenties", "20~29", "male")).ageRange())
+			.isEqualTo(AgeRange.TWENTIES);
+		assertThat(mapper.map(userAttributes("3", "thirties", "30~39", "male")).ageRange())
+			.isEqualTo(AgeRange.THIRTIES);
+		assertThat(mapper.map(userAttributes("4", "forties", "40~49", "male")).ageRange())
+			.isEqualTo(AgeRange.FORTIES_PLUS);
+		assertThat(mapper.map(userAttributes("5", "fifties", "50~59", "male")).ageRange())
+			.isEqualTo(AgeRange.FORTIES_PLUS);
+	}
+
+	@Test
+	void 성별은_서비스_enum으로_변환한다() {
+		assertThat(mapper.map(userAttributes("1", "female", "20~29", "female")).gender())
+			.isEqualTo(UserGender.FEMALE);
+		assertThat(mapper.map(userAttributes("2", "male", "20~29", "male")).gender())
+			.isEqualTo(UserGender.MALE);
+	}
+
+	@Test
+	void 닉네임이_비어있으면_kakao_id_기반_닉네임을_사용한다() {
+		KakaoUserInfo userInfo = mapper.map(userAttributes("12345", " ", "20~29", "male"));
+
+		assertThat(userInfo.nickname()).isEqualTo("kakao_user_12345");
+	}
+
+	@Test
+	void 연령대가_없으면_예외가_발생한다() {
+		Map<String, Object> attributes = userAttributes("12345", "duck_fan", null, "female");
+
+		assertThatThrownBy(() -> mapper.map(attributes))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("Kakao age_range is required");
+	}
+
+	@Test
+	void 성별이_없으면_예외가_발생한다() {
+		Map<String, Object> attributes = userAttributes("12345", "duck_fan", "20~29", null);
+
+		assertThatThrownBy(() -> mapper.map(attributes))
+			.isInstanceOf(IllegalArgumentException.class)
+			.hasMessageContaining("Kakao gender is required");
+	}
+
+	private Map<String, Object> userAttributes(String id, String nickname, String ageRange, String gender) {
+		return Map.of(
+			"id", id,
+			"kakao_account", Map.of(
+				"profile", Map.of("nickname", nickname),
+				"age_range", nullableString(ageRange),
+				"gender", nullableString(gender)
+			)
+		);
+	}
+
+	private Object nullableString(String value) {
+		return value == null ? "" : value;
+	}
+}

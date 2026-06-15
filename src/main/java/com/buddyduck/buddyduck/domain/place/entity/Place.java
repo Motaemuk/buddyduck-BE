@@ -53,4 +53,29 @@ public class Place extends BaseTimeEntity {
 
 	@Column(nullable = false, precision = 10, scale = 7)
 	private BigDecimal lng;
+
+	public static Place create(
+		PlaceSource provider,
+		String providerPlaceId,
+		String name,
+		String address,
+		BigDecimal lat,
+		BigDecimal lng
+	) {
+		Place place = new Place();
+		place.provider = provider;
+		place.providerPlaceId = providerPlaceId;
+		place.name = name;
+		place.address = address;
+		place.lat = lat;
+		place.lng = lng;
+		return place;
+	}
+
+	public void update(String name, String address, BigDecimal lat, BigDecimal lng) {
+		this.name = name;
+		this.address = address;
+		this.lat = lat;
+		this.lng = lng;
+	}
 }

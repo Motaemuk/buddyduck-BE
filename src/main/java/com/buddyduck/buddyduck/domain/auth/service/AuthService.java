@@ -35,6 +35,7 @@ public class AuthService {
 		return new LoginResponse(
 			accessToken,
 			isNewUser,
+			savedUser.isProfileCompleted(),
 			new LoginUserSummary(savedUser.getId(), savedUser.getNickname())
 		);
 	}

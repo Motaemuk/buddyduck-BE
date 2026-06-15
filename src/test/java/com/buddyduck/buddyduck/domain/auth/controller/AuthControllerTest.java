@@ -39,6 +39,7 @@ class AuthControllerTest {
 			.willReturn(new LoginResponse(
 				"access-token",
 				true,
+				false,
 				new LoginUserSummary(1L, "duck_fan")
 			));
 
@@ -53,6 +54,7 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.code").value("COMMON200"))
 			.andExpect(jsonPath("$.result.accessToken").value("access-token"))
 			.andExpect(jsonPath("$.result.isNewUser").value(true))
+			.andExpect(jsonPath("$.result.profileCompleted").value(false))
 			.andExpect(jsonPath("$.result.user.id").value(1))
 			.andExpect(jsonPath("$.result.user.nickname").value("duck_fan"));
 	}

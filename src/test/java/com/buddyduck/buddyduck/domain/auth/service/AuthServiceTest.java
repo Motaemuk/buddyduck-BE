@@ -46,6 +46,7 @@ class AuthServiceTest {
 		User savedUser = userRepository.findByKakaoId("12345").orElseThrow();
 		assertThat(response.accessToken()).isNotBlank();
 		assertThat(response.isNewUser()).isTrue();
+		assertThat(response.profileCompleted()).isFalse();
 		assertThat(response.user().id()).isEqualTo(savedUser.getId());
 		assertThat(response.user().nickname()).isEqualTo("duck_fan");
 		assertThat(savedUser.getAgeRange()).isEqualTo(AgeRange.TWENTIES);
@@ -69,10 +70,38 @@ class AuthServiceTest {
 
 		User updatedUser = userRepository.findById(existingUser.getId()).orElseThrow();
 		assertThat(response.isNewUser()).isFalse();
+		assertThat(response.profileCompleted()).isFalse();
 		assertThat(response.user().nickname()).isEqualTo("local_duck");
 		assertThat(updatedUser.getNickname()).isEqualTo("local_duck");
 		assertThat(updatedUser.getAgeRange()).isEqualTo(AgeRange.THIRTIES);
 		assertThat(updatedUser.getGender()).isEqualTo(UserGender.FEMALE);
+	}
+
+	@Test
+	void 프로필을_완료한_Kakao_사용자는_로그인해도_추가정보를_덮어쓰지_않는다() {
+		User existingUser = User.createKakao(
+			"12345",
+			"local_duck",
+			AgeRange.TWENTIES,
+			UserGender.MALE
+		);
+		existingUser.completeProfile("local_duck", AgeRange.TWENTIES, UserGender.MALE, false, true);
+		userRepository.save(existingUser);
+		given(kakaoAuthClient.getUserInfo("auth-code", "http://localhost:5173/oauth/kakao/callback"))
+			.willReturn(new KakaoUserInfo("12345", "kakao_changed", AgeRange.THIRTIES, UserGender.FEMALE));
+
+		LoginResponse response = authService.loginWithKakao(
+			new KakaoLoginRequest("auth-code", "http://localhost:5173/oauth/kakao/callback")
+		);
+
+		User updatedUser = userRepository.findById(existingUser.getId()).orElseThrow();
+		assertThat(response.isNewUser()).isFalse();
+		assertThat(response.profileCompleted()).isTrue();
+		assertThat(updatedUser.getNickname()).isEqualTo("local_duck");
+		assertThat(updatedUser.getAgeRange()).isEqualTo(AgeRange.TWENTIES);
+		assertThat(updatedUser.getGender()).isEqualTo(UserGender.MALE);
+		assertThat(updatedUser.isAgeVisible()).isFalse();
+		assertThat(updatedUser.isGenderVisible()).isTrue();
 	}
 
 	@Test
@@ -86,6 +115,7 @@ class AuthServiceTest {
 
 		User savedUser = userRepository.findByKakaoId("12345").orElseThrow();
 		assertThat(response.isNewUser()).isTrue();
+		assertThat(response.profileCompleted()).isFalse();
 		assertThat(savedUser.getAgeRange()).isEqualTo(AgeRange.PRIVATE);
 		assertThat(savedUser.getGender()).isEqualTo(UserGender.PRIVATE);
 	}

@@ -1,13 +1,17 @@
 package com.buddyduck.buddyduck.domain.user.controller;
 
+import com.buddyduck.buddyduck.domain.user.dto.UpdateProfileRequest;
 import com.buddyduck.buddyduck.domain.user.dto.UserProfileResponse;
 import com.buddyduck.buddyduck.domain.user.service.UserQueryService;
 import com.buddyduck.buddyduck.global.apiPayload.ApiResponse;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralSuccessCode;
 import com.buddyduck.buddyduck.global.security.UserPrincipal;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,5 +25,13 @@ public class UserController {
 	@GetMapping("/me")
 	public ApiResponse<UserProfileResponse> getMyProfile(@AuthenticationPrincipal UserPrincipal principal) {
 		return ApiResponse.onSuccess(GeneralSuccessCode.OK, userQueryService.getMyProfile(principal.userId()));
+	}
+
+	@PatchMapping("/me/profile")
+	public ApiResponse<UserProfileResponse> updateMyProfile(
+		@AuthenticationPrincipal UserPrincipal principal,
+		@Valid @RequestBody UpdateProfileRequest request
+	) {
+		return ApiResponse.onSuccess(GeneralSuccessCode.OK, userQueryService.updateMyProfile(principal.userId(), request));
 	}
 }

@@ -12,6 +12,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -38,6 +39,15 @@ public class GeneralExceptionAdvice {
 	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
 	public ResponseEntity<ApiResponse<String>> handleMethodNotAllowed(Exception exception) {
 		BaseErrorCode errorCode = GeneralErrorCode.METHOD_NOT_ALLOWED;
+
+		return ResponseEntity
+			.status(errorCode.getStatus())
+			.body(ApiResponse.onFailure(errorCode, exception.getMessage()));
+	}
+
+	@ExceptionHandler(NoResourceFoundException.class)
+	public ResponseEntity<ApiResponse<String>> handleNoResourceFoundException(Exception exception) {
+		BaseErrorCode errorCode = GeneralErrorCode.NOT_FOUND;
 
 		return ResponseEntity
 			.status(errorCode.getStatus())

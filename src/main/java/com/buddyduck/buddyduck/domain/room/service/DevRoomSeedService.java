@@ -28,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DevRoomSeedService {
 
-	private static final String DEMO_HOST_KAKAO_ID = "dev:demo-host";
+	private static final String DEMO_HOST_KAKAO_ID = "seed:demo-host";
 	private static final String DEMO_CONCERT_SOURCE = "SEED";
 	private static final String DEMO_CONCERT_EXTERNAL_ID = "seed-demo-concert";
 

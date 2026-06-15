@@ -2,6 +2,11 @@
 
 백엔드 API를 구현하면서 프론트엔드와 공유해야 하거나, 이후 결정이 필요한 내용을 기록합니다.
 
+## 사용자 확인 결정
+
+- 당분간 백엔드 전역 `profileCompleted=false` guard는 구현하지 않습니다. 프론트엔드 플로우에서 프로필 미완성 사용자를 CB-02로 유도하고, 백엔드는 일반적인 인증/인가/비즈니스 규칙만 강제합니다.
+- 공개 API 응답에는 `profileSource`를 노출하지 않습니다. 성별/연령대 정보의 출처 정책은 API 명세 설명으로만 관리합니다.
+
 ## 구현된 범위
 
 - 공연 목록/상세 조회 API를 추가했습니다.
@@ -42,3 +47,12 @@
 | Kakao Local 실시간 연동 | 현재 place API는 이름상 Kakao Local 검색처럼 보이지만, 실제로는 로컬 DB 후보를 조회합니다. FE가 실시간 검색으로 기대하면 결과 범위가 제한됩니다. | DB 후보 조회 유지, Kakao Local adapter 추가, FE에서 직접 Kakao Local 호출 | 백엔드 adapter를 추가하되 API key/쿼터/장애 시 fallback 정책을 정한 뒤 적용 |
 | 방 상세 응답 확장 | 현재 `ROOM-003`은 API JSON의 필수 상태/권한 필드를 우선 구현했습니다. FE가 한 번의 호출로 더 많은 집계 정보를 원하면 응답이 커질 수 있습니다. | 현재 응답 유지, room detail aggregate 확장, 필요한 화면별 별도 API 유지 | FE 연동 후 필요한 필드만 추가 |
 | 일정 draft 검증 깊이 | MVP 문서에는 deterministic validator와 시간 초과 모달이 언급되지만, API 실행 기반을 먼저 만들면 세부 과적합 계산은 뒤로 밀릴 수 있습니다. | 기본 request validation만 적용, 상세 overrun 계산 추가, FE에서 우선 계산 | 이번 구현에서는 저장/미리보기 흐름과 기본 검증을 우선 만들고, 상세 overrun 계산은 일정 UX 확정 뒤 보강 |
+
+## 구현 중 발생한 문제
+
+| 시점 | 문제 | 해결 |
+| --- | --- | --- |
+| 2026-06-15 | 초기 RED compile 단계에서 `AuthService.devLogin(...)`이 없어 실패했습니다. | `DevLoginRequest`, `/api/auth/dev-login`, dev-login service 흐름을 추가했습니다. |
+| 2026-06-15 | Place RED 테스트에서 `/api/places/search`, `/api/places/geocode`, `/api/places`가 없어 실패했습니다. | `PlaceController`, DB 기반 `PlaceService`, DTO, repository query를 추가했습니다. |
+| 2026-06-15 | Room 테스트 이후 FK로 연결된 room 데이터가 남아 `UserControllerTest`의 `userRepository.deleteAll()`이 실패했습니다. | `RoomControllerTest`에 `@AfterEach` cleanup을 추가해 room/schedule/join row를 테스트마다 제거하도록 했습니다. |
+| 2026-06-15 | Schedule RED 테스트에서 timeline, map, draft preview, commit API가 없어 실패했습니다. | `ScheduleController`, `ScheduleService`, DTO, slot/route factory, repository cleanup/query method를 추가했습니다. |

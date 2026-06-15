@@ -41,4 +41,18 @@ public class User extends BaseTimeEntity {
 
 	@Column(name = "avatar_color", nullable = false, length = 20)
 	private String avatarColor = "#FACC15";
+
+	public static User createKakao(String kakaoId, String nickname, AgeRange ageRange, UserGender gender) {
+		User user = new User();
+		user.kakaoId = kakaoId;
+		user.nickname = nickname;
+		user.ageRange = ageRange;
+		user.gender = gender;
+		return user;
+	}
+
+	public void updateKakaoProfile(AgeRange ageRange, UserGender gender) {
+		this.ageRange = ageRange;
+		this.gender = gender;
+	}
 }

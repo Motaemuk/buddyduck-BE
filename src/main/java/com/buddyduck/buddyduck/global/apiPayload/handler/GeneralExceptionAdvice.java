@@ -43,6 +43,15 @@ public class GeneralExceptionAdvice {
 			.body(ApiResponse.onFailure(errorCode, exception.getMessage()));
 	}
 
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	public ResponseEntity<ApiResponse<Void>> handleMethodArgumentNotValidException() {
+		BaseErrorCode errorCode = GeneralErrorCode.BAD_REQUEST;
+
+		return ResponseEntity
+			.status(errorCode.getStatus())
+			.body(ApiResponse.onFailure(errorCode, null));
+	}
+
 	@ExceptionHandler(Exception.class)
 	public ResponseEntity<ApiResponse<Void>> handleException(Exception exception) {
 		BaseErrorCode errorCode = GeneralErrorCode.INTERNAL_SERVER_ERROR;

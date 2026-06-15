@@ -65,6 +65,59 @@ Remove the local MySQL volume when you want a clean database:
 docker compose down -v
 ```
 
+## Kakao OAuth
+
+The frontend receives a Kakao authorization code, then sends it to this backend. The backend exchanges the code for a Kakao token, reads Kakao user info, creates or finds the user, and returns a service JWT.
+
+Required local environment values:
+
+```properties
+JWT_SECRET_KEY=replace-with-at-least-32-byte-secret-key
+JWT_ACCESS_EXPIRATION=3600000
+KAKAO_CLIENT_ID=replace-with-kakao-rest-api-key
+KAKAO_CLIENT_SECRET=
+```
+
+Kakao Developers setup:
+
+- Create a Kakao app and enable Kakao Login.
+- Register the local frontend domain, for example `http://localhost:5173`.
+- Register the exact redirect URI used by the frontend, for example `http://localhost:5173/oauth/kakao/callback`.
+- Copy the REST API key to `KAKAO_CLIENT_ID`.
+- If Kakao client secret is enabled, copy it to `KAKAO_CLIENT_SECRET`; otherwise leave it empty.
+- Configure consent items for profile nickname, age range, and gender. If age range or gender is not returned, this backend rejects login with `AUTH_REQUIRED_PROFILE_INFO`.
+
+Login request:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/kakao \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "code": "<kakao-authorization-code>",
+    "redirectUri": "http://localhost:5173/oauth/kakao/callback"
+  }'
+```
+
+Login response result:
+
+```json
+{
+  "accessToken": "<service-jwt>",
+  "isNewUser": true,
+  "user": {
+    "id": 1,
+    "nickname": "duck_fan"
+  }
+}
+```
+
+Use the service JWT for protected APIs:
+
+```bash
+curl http://localhost:8080/api/users/me \
+  -H 'Authorization: Bearer <service-jwt>'
+```
+
 ## Test Profile
 
 Tests use the `test` profile with in-memory H2. They do not require Docker.
@@ -104,6 +157,9 @@ DB_PASSWORD=<database-password>
 - Common API response envelope
 - Common exception handler
 - `GET /api/health`
+- `POST /api/auth/kakao`
+- JWT bearer authentication
+- `GET /api/users/me`
 - ERD-based JPA domain skeleton and repositories
 - Local MySQL Docker Compose
 - Flyway schema migration baseline

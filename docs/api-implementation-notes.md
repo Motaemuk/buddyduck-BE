@@ -11,6 +11,9 @@
 - 방 목록/생성/상세/내 방 목록 API를 추가했습니다.
 - 가입 신청 생성/조회/승인/거절 API를 추가했습니다.
 - 승인된 멤버 또는 방장만 볼 수 있는 open-chat 조회 API를 추가했습니다.
+- 일정 timeline 조회 API를 추가했습니다.
+- 일정 draft 미리보기/확정 API를 추가했습니다.
+- 방 지도 bounds 조회 API를 추가했습니다.
 
 ## 프론트엔드 공유 필요
 
@@ -26,6 +29,9 @@
 - `POST /api/rooms`는 요청 body의 `concertId`를 기준으로 방을 생성하며, `maxMembers`는 방장을 포함한 총 정원입니다.
 - 방 생성 시 방장은 자동으로 `room_members`에 `HOST`로 들어갑니다.
 - `GET /api/rooms/{roomId}/open-chat`은 방장 또는 승인된 멤버만 호출할 수 있습니다.
+- `GET /api/schedules/{scheduleId}/timeline`, `POST /api/schedules/{scheduleId}/draft`, `PUT /api/schedules/{scheduleId}/draft/commit`은 방장 또는 방 멤버만 호출할 수 있습니다.
+- `GET /api/rooms/{roomId}/map`은 방장 또는 방 멤버만 호출할 수 있습니다.
+- 일정 draft 미리보기는 DB에 저장하지 않고, 확정 API는 기존 slot/route를 삭제한 뒤 새 draft를 저장합니다.
 
 ## 남은 결정
 

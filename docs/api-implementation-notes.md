@@ -35,3 +35,4 @@
 | 관심 태그 enum 확장 | 프론트 UI 칩과 백엔드 enum이 다르면 저장 시 400이 발생합니다. | 현재 enum 유지, API 명세와 UI 칩을 함께 수정 | API 명세를 기준으로 FE/BE enum을 같이 관리 |
 | Kakao Local 실시간 연동 | 현재 place API는 이름상 Kakao Local 검색처럼 보이지만, 실제로는 로컬 DB 후보를 조회합니다. FE가 실시간 검색으로 기대하면 결과 범위가 제한됩니다. | DB 후보 조회 유지, Kakao Local adapter 추가, FE에서 직접 Kakao Local 호출 | 백엔드 adapter를 추가하되 API key/쿼터/장애 시 fallback 정책을 정한 뒤 적용 |
 | 방 상세 응답 확장 | 현재 `ROOM-003`은 API JSON의 필수 상태/권한 필드를 우선 구현했습니다. FE가 한 번의 호출로 더 많은 집계 정보를 원하면 응답이 커질 수 있습니다. | 현재 응답 유지, room detail aggregate 확장, 필요한 화면별 별도 API 유지 | FE 연동 후 필요한 필드만 추가 |
+| 일정 draft 검증 깊이 | MVP 문서에는 deterministic validator와 시간 초과 모달이 언급되지만, API 실행 기반을 먼저 만들면 세부 과적합 계산은 뒤로 밀릴 수 있습니다. | 기본 request validation만 적용, 상세 overrun 계산 추가, FE에서 우선 계산 | 이번 구현에서는 저장/미리보기 흐름과 기본 검증을 우선 만들고, 상세 overrun 계산은 일정 UX 확정 뒤 보강 |

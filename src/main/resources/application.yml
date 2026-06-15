@@ -11,6 +11,12 @@ spring:
         query:
           fail_on_pagination_over_collection_fetch: true
 
+jwt:
+  token:
+    secret-key: ${JWT_SECRET_KEY}
+    expiration:
+      access: ${JWT_ACCESS_EXPIRATION:3600000}
+
 ---
 
 spring:

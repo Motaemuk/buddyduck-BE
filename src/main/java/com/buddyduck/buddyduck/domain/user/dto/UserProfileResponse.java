@@ -8,6 +8,9 @@ public record UserProfileResponse(
 	String nickname,
 	AgeRange ageRange,
 	UserGender gender,
+	boolean ageVisible,
+	boolean genderVisible,
+	boolean profileCompleted,
 	String avatarColor
 ) {
 }

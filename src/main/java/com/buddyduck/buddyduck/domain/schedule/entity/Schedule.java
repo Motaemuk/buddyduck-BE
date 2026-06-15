@@ -43,4 +43,8 @@ public class Schedule extends BaseTimeEntity {
 		schedule.arrivalBufferMinutes = 30;
 		return schedule;
 	}
+
+	public void updateArrivalBufferMinutes(Integer arrivalBufferMinutes) {
+		this.arrivalBufferMinutes = arrivalBufferMinutes;
+	}
 }

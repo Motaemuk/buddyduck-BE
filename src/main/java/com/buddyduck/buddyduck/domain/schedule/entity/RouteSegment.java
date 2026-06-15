@@ -63,4 +63,26 @@ public class RouteSegment extends BaseTimeEntity {
 
 	@Column(name = "manually_adjusted", nullable = false)
 	private Boolean manuallyAdjusted = false;
+
+	public static RouteSegment create(
+		Schedule schedule,
+		ScheduleSlot fromSlot,
+		ScheduleSlot toSlot,
+		RouteMode mode,
+		Integer distanceMeters,
+		Integer durationMinutes,
+		String provider,
+		Boolean manuallyAdjusted
+	) {
+		RouteSegment routeSegment = new RouteSegment();
+		routeSegment.schedule = schedule;
+		routeSegment.fromSlot = fromSlot;
+		routeSegment.toSlot = toSlot;
+		routeSegment.mode = mode;
+		routeSegment.distanceMeters = distanceMeters;
+		routeSegment.durationMinutes = durationMinutes;
+		routeSegment.provider = provider;
+		routeSegment.manuallyAdjusted = manuallyAdjusted;
+		return routeSegment;
+	}
 }

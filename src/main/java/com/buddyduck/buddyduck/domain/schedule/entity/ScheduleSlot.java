@@ -73,4 +73,30 @@ public class ScheduleSlot extends BaseTimeEntity {
 
 	@Column(nullable = false)
 	private Boolean locked = false;
+
+	public static ScheduleSlot create(
+		Schedule schedule,
+		Place place,
+		SlotType slotType,
+		SlotCategory category,
+		String title,
+		Integer sortOrder,
+		LocalDateTime startAt,
+		LocalDateTime endAt,
+		Integer dwellMinutes,
+		Boolean locked
+	) {
+		ScheduleSlot slot = new ScheduleSlot();
+		slot.schedule = schedule;
+		slot.place = place;
+		slot.slotType = slotType;
+		slot.category = category;
+		slot.title = title;
+		slot.sortOrder = sortOrder;
+		slot.startAt = startAt;
+		slot.endAt = endAt;
+		slot.dwellMinutes = dwellMinutes;
+		slot.locked = locked;
+		return slot;
+	}
 }

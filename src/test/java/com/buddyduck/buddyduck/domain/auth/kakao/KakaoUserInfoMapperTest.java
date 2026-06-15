@@ -1,8 +1,6 @@
 package com.buddyduck.buddyduck.domain.auth.kakao;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 import com.buddyduck.buddyduck.domain.auth.kakao.dto.KakaoUserInfo;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
@@ -53,21 +51,21 @@ class KakaoUserInfoMapperTest {
 	}
 
 	@Test
-	void 연령대가_없으면_예외가_발생한다() {
+	void 연령대가_없으면_PRIVATE으로_매핑한다() {
 		Map<String, Object> attributes = userAttributes("12345", "duck_fan", null, "female");
 
-		assertThatThrownBy(() -> mapper.map(attributes))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("Kakao age_range is required");
+		KakaoUserInfo userInfo = mapper.map(attributes);
+
+		assertThat(userInfo.ageRange()).isEqualTo(AgeRange.PRIVATE);
 	}
 
 	@Test
-	void 성별이_없으면_예외가_발생한다() {
+	void 성별이_없으면_PRIVATE으로_매핑한다() {
 		Map<String, Object> attributes = userAttributes("12345", "duck_fan", "20~29", null);
 
-		assertThatThrownBy(() -> mapper.map(attributes))
-			.isInstanceOf(IllegalArgumentException.class)
-			.hasMessageContaining("Kakao gender is required");
+		KakaoUserInfo userInfo = mapper.map(attributes);
+
+		assertThat(userInfo.gender()).isEqualTo(UserGender.PRIVATE);
 	}
 
 	private Map<String, Object> userAttributes(String id, String nickname, String ageRange, String gender) {

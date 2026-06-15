@@ -85,7 +85,7 @@ Kakao Developers setup:
 - Register the exact redirect URI used by the frontend, for example `http://localhost:5173/oauth/kakao/callback`.
 - Copy the REST API key to `KAKAO_CLIENT_ID`.
 - If Kakao client secret is enabled, copy it to `KAKAO_CLIENT_SECRET`; otherwise leave it empty.
-- Configure consent items for profile nickname, age range, and gender. If age range or gender is not returned, this backend rejects login with `AUTH_REQUIRED_PROFILE_INFO`.
+- Configure the profile nickname consent item. Age range and gender are stored when Kakao returns them; otherwise they are saved as `PRIVATE`.
 
 Login request:
 

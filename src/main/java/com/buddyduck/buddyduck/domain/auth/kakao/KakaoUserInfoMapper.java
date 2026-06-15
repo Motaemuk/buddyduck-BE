@@ -26,12 +26,15 @@ public class KakaoUserInfoMapper {
 		return new KakaoUserInfo(
 			kakaoId,
 			nickname,
-			mapAgeRange(requiredString(kakaoAccount, "age_range", "Kakao age_range is required.")),
-			mapGender(requiredString(kakaoAccount, "gender", "Kakao gender is required."))
+			mapAgeRange(stringValue(kakaoAccount, "age_range")),
+			mapGender(stringValue(kakaoAccount, "gender"))
 		);
 	}
 
 	private AgeRange mapAgeRange(String value) {
+		if (value == null || value.isBlank()) {
+			return AgeRange.PRIVATE;
+		}
 		return switch (value) {
 			case "10~19" -> AgeRange.TEENS;
 			case "20~29" -> AgeRange.TWENTIES;
@@ -46,6 +49,9 @@ public class KakaoUserInfoMapper {
 	}
 
 	private UserGender mapGender(String value) {
+		if (value == null || value.isBlank()) {
+			return UserGender.PRIVATE;
+		}
 		return switch (value.toLowerCase()) {
 			case "female" -> UserGender.FEMALE;
 			case "male" -> UserGender.MALE;

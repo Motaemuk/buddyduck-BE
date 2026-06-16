@@ -24,4 +24,17 @@ class SecurityConfigTest {
 			.andExpect(jsonPath("$.code").value("COMMON200"))
 			.andExpect(jsonPath("$.result.status").value("UP"));
 	}
+
+	@Test
+	void OpenAPI_JSON은_인증_없이_호출할_수_있다() throws Exception {
+		mockMvc.perform(get("/v3/api-docs"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.openapi").exists());
+	}
+
+	@Test
+	void Swagger_UI는_인증_없이_호출할_수_있다() throws Exception {
+		mockMvc.perform(get("/swagger-ui/index.html"))
+			.andExpect(status().isOk());
+	}
 }

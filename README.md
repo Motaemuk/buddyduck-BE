@@ -53,6 +53,18 @@ Expected response:
 }
 ```
 
+Swagger UI:
+
+```text
+http://localhost:8080/swagger-ui/index.html
+```
+
+OpenAPI JSON:
+
+```text
+http://localhost:8080/v3/api-docs
+```
+
 Stop local MySQL:
 
 ```bash
@@ -183,6 +195,7 @@ DB_PASSWORD=<database-password>
 - JWT bearer authentication
 - `GET /api/users/me`
 - `PATCH /api/users/me/profile`
+- Swagger UI and OpenAPI JSON
 - ERD-based JPA domain skeleton and repositories
 - Local MySQL Docker Compose
 - Flyway schema migration baseline

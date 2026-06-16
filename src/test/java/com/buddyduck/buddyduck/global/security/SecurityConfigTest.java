@@ -29,7 +29,9 @@ class SecurityConfigTest {
 	void OpenAPI_JSON은_인증_없이_호출할_수_있다() throws Exception {
 		mockMvc.perform(get("/v3/api-docs"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.openapi").exists());
+			.andExpect(jsonPath("$.openapi").exists())
+			.andExpect(jsonPath("$.info.title").value("Buddyduck API"))
+			.andExpect(jsonPath("$.info.version").value("v1"));
 	}
 
 	@Test

@@ -2,7 +2,7 @@
 	email admin@example.com
 }
 
-api.boostad.site {
+http://api.boostad.site, https://api.boostad.site {
 	encode gzip
 
 	header {

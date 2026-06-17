@@ -30,12 +30,16 @@ public class V3__require_demographic_profile extends BaseJavaMigration {
 				SET profile_completed = FALSE
 				WHERE age_range IS NULL
 				   OR gender IS NULL
+				   OR nickname IS NULL
+				   OR TRIM(nickname) = ''
 				""");
 			statement.execute("""
 				UPDATE users
 				SET profile_completed = TRUE
 				WHERE age_range IS NOT NULL
 				  AND gender IS NOT NULL
+				  AND nickname IS NOT NULL
+				  AND TRIM(nickname) <> ''
 				""");
 			statement.execute("ALTER TABLE users DROP COLUMN age_visible");
 			statement.execute("ALTER TABLE users DROP COLUMN gender_visible");

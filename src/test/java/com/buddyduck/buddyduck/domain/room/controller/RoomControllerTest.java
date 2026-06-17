@@ -60,9 +60,9 @@ class RoomControllerTest {
 	@BeforeEach
 	void setUp() {
 		deleteAll();
-		host = saveCompletedUser("host_duck", true, true);
-		applicant = saveCompletedUser("join_duck", true, true);
-		visitor = saveCompletedUser("visit_duck", true, true);
+		host = saveCompletedUser("host_duck");
+		applicant = saveCompletedUser("join_duck");
+		visitor = saveCompletedUser("visit_duck");
 		concertId = insertConcert();
 		meetingPlaceId = insertPlace("잠실역 5번 출구", "서울 송파구 잠실동");
 		eventPlaceId = insertPlace("KSPO Dome", "서울 송파구 올림픽로 424");
@@ -306,9 +306,9 @@ class RoomControllerTest {
 		userRepository.deleteAll();
 	}
 
-	private User saveCompletedUser(String nickname, boolean ageVisible, boolean genderVisible) {
+	private User saveCompletedUser(String nickname) {
 		User user = User.createKakao("kakao-" + nickname, nickname, AgeRange.TWENTIES, UserGender.FEMALE);
-		user.completeProfile(nickname, AgeRange.TWENTIES, UserGender.FEMALE, ageVisible, genderVisible);
+		user.completeProfile(nickname, AgeRange.TWENTIES, UserGender.FEMALE);
 		return userRepository.save(user);
 	}
 

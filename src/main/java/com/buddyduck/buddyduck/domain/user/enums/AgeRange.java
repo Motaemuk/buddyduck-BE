@@ -4,6 +4,5 @@ public enum AgeRange {
 	TEENS,
 	TWENTIES,
 	THIRTIES,
-	FORTIES_PLUS,
-	PRIVATE
+	FORTIES_PLUS
 }

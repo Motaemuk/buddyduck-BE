@@ -22,8 +22,6 @@ import com.buddyduck.buddyduck.domain.room.repository.JoinRequestRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomMemberRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomTagRepository;
 import com.buddyduck.buddyduck.domain.user.entity.User;
-import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
-import com.buddyduck.buddyduck.domain.user.enums.UserGender;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.util.LinkedHashSet;
@@ -176,8 +174,8 @@ public class JoinRequestService {
 			request.getId(),
 			user.getId(),
 			user.getNickname(),
-			user.isAgeVisible() ? user.getAgeRange() : AgeRange.PRIVATE,
-			user.isGenderVisible() ? user.getGender() : UserGender.PRIVATE,
+			user.getAgeRange(),
+			user.getGender(),
 			request.getMessage(),
 			matchedTags,
 			RoomDateTimeFormatter.format(request.getCreatedAt())

@@ -76,53 +76,47 @@ class UserControllerTest {
 			.andExpect(jsonPath("$.isSuccess").value(true))
 			.andExpect(jsonPath("$.code").value("COMMON200"))
 			.andExpect(jsonPath("$.result.id").value(user.getId()))
-			.andExpect(jsonPath("$.result.nickname").value("duck_fan"))
-			.andExpect(jsonPath("$.result.ageRange").value("TWENTIES"))
-			.andExpect(jsonPath("$.result.gender").value("FEMALE"))
-			.andExpect(jsonPath("$.result.ageVisible").value(false))
-			.andExpect(jsonPath("$.result.genderVisible").value(false))
-			.andExpect(jsonPath("$.result.profileCompleted").value(false))
-			.andExpect(jsonPath("$.result.avatarColor").value("#FACC15"));
+				.andExpect(jsonPath("$.result.nickname").value("duck_fan"))
+				.andExpect(jsonPath("$.result.ageRange").value("TWENTIES"))
+				.andExpect(jsonPath("$.result.gender").value("FEMALE"))
+				.andExpect(jsonPath("$.result.profileCompleted").value(false))
+				.andExpect(jsonPath("$.result.avatarColor").value("#FACC15"));
 	}
 
 	@Test
 	void 추가_프로필을_저장하면_회원가입이_완료된다() throws Exception {
 		User user = userRepository.save(User.createKakao(
-			"12345",
-			"duck_fan",
-			AgeRange.PRIVATE,
-			UserGender.PRIVATE
-		));
+				"12345",
+				"duck_fan",
+				null,
+				null
+			));
 		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
 
 		mockMvc.perform(patch("/api/users/me/profile")
 				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken)
 				.contentType(MediaType.APPLICATION_JSON)
-				.content(objectMapper.writeValueAsString(Map.of(
-					"nickname", "moon_armies",
-					"ageRange", "TWENTIES",
-					"gender", "FEMALE",
-					"ageVisible", false,
-					"genderVisible", true
-				))))
+					.content(objectMapper.writeValueAsString(Map.of(
+						"nickname", "moon_armies",
+						"ageRange", "TWENTIES",
+						"gender", "FEMALE"
+					))))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.isSuccess").value(true))
 			.andExpect(jsonPath("$.code").value("COMMON200"))
-			.andExpect(jsonPath("$.result.nickname").value("moon_armies"))
-			.andExpect(jsonPath("$.result.ageRange").value("TWENTIES"))
-			.andExpect(jsonPath("$.result.gender").value("FEMALE"))
-			.andExpect(jsonPath("$.result.ageVisible").value(false))
-			.andExpect(jsonPath("$.result.genderVisible").value(true))
-			.andExpect(jsonPath("$.result.profileCompleted").value(true));
+				.andExpect(jsonPath("$.result.nickname").value("moon_armies"))
+				.andExpect(jsonPath("$.result.ageRange").value("TWENTIES"))
+				.andExpect(jsonPath("$.result.gender").value("FEMALE"))
+				.andExpect(jsonPath("$.result.profileCompleted").value(true));
 	}
 
 	@Test
-	void 추가_프로필에서_PRIVATE_연령대는_400을_응답한다() throws Exception {
+	void 추가_프로필에서_연령대를_누락하면_400을_응답한다() throws Exception {
 		User user = userRepository.save(User.createKakao(
 			"12345",
 			"duck_fan",
-			AgeRange.PRIVATE,
-			UserGender.PRIVATE
+			null,
+			null
 		));
 		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
 
@@ -131,10 +125,7 @@ class UserControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(Map.of(
 					"nickname", "moon_armies",
-					"ageRange", "PRIVATE",
-					"gender", "FEMALE",
-					"ageVisible", false,
-					"genderVisible", true
+					"gender", "FEMALE"
 				))))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.isSuccess").value(false))
@@ -142,12 +133,12 @@ class UserControllerTest {
 	}
 
 	@Test
-	void 추가_프로필에서_PRIVATE_성별은_400을_응답한다() throws Exception {
+	void 추가_프로필에서_성별을_누락하면_400을_응답한다() throws Exception {
 		User user = userRepository.save(User.createKakao(
 			"12345",
 			"duck_fan",
-			AgeRange.PRIVATE,
-			UserGender.PRIVATE
+			null,
+			null
 		));
 		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
 
@@ -156,10 +147,7 @@ class UserControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(Map.of(
 					"nickname", "moon_armies",
-					"ageRange", "TWENTIES",
-					"gender", "PRIVATE",
-					"ageVisible", false,
-					"genderVisible", true
+					"ageRange", "TWENTIES"
 				))))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.isSuccess").value(false))

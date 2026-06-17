@@ -9,8 +9,8 @@
 - `POST /api/auth/dev-login`은 제거했습니다. 프론트는 개발 중에도 최종 흐름과 같은 `POST /api/auth/kakao/login` 기준으로 붙이는 것이 좋습니다.
 - `POST /api/auth/kakao/login` 요청에는 `code`, `redirectUri`가 필요합니다. `redirectUri`는 카카오 개발자 콘솔에 등록한 값과 프론트에서 인가 코드 받을 때 사용한 값이 같아야 합니다.
 - 로그인 응답에는 `profileCompleted`가 들어갑니다. 값이 `false`면 프론트에서 CB-02 프로필 완료 화면으로 보내야 합니다.
-- 카카오에서 `age_range`, `gender`를 못 받으면 백엔드는 `PRIVATE`로 저장합니다. 이후 `PATCH /api/users/me/profile`에서 사용자가 직접 `ageRange`, `gender`를 입력해야 가입 완료 상태가 됩니다.
-- `PATCH /api/users/me/profile` 완료 요청에서는 `ageRange=PRIVATE`, `gender=PRIVATE`를 허용하지 않습니다. 화면에서는 비공개 여부를 `ageVisible=false`, `genderVisible=false`로 표현해야 합니다.
+- 카카오에서 `age_range`, `gender`를 못 받으면 백엔드는 값을 비워 둡니다. 이후 `PATCH /api/users/me/profile`에서 사용자가 직접 `ageRange`, `gender`를 입력해야 가입 완료 상태가 됩니다.
+- `PATCH /api/users/me/profile` 완료 요청에는 `nickname`, `ageRange`, `gender`가 필요합니다. 연령대와 성별은 서비스 안전을 위해 필수이며, 비공개 선택 필드는 사용하지 않습니다.
 - API 응답에는 `profileSource`를 노출하지 않습니다. 현재 MVP에서는 출처를 API 필드로 들고 다니기보다 "카카오 기본값이 있으면 프론트에서 미리 채울 수 있고, 없으면 사용자가 직접 입력한다"는 정책 설명으로 관리합니다.
 
 ### Place
@@ -53,7 +53,7 @@
 - 가입 신청 생성/조회/승인/거절 API를 추가했습니다.
 - 승인된 멤버 또는 방장만 볼 수 있는 open-chat 조회 API를 추가했습니다.
 - 일정 timeline 조회 API를 추가했습니다.
-- 일정 draft 미리보기/확정 API를 추가했습니다.
+- 일정 draft 미리보기/확정 API 골격과 저장 흐름을 추가했습니다.
 - 방 지도 bounds 조회 API를 추가했습니다.
 
 ## 결정 및 이슈 상세
@@ -63,12 +63,13 @@
 | 완료 | Dev login 제거 | `dev-login`은 인증 우회 API라서 OAuth/JWT 흐름 검증을 흐리게 만듭니다. 프론트가 여기에 붙으면 나중에 실제 카카오 로그인으로 바꿀 때 다시 갈아엎게 됩니다. | `/api/auth/dev-login`과 관련 service/DTO/test를 제거했습니다. 없는 endpoint는 404가 나가도록 공통 예외 처리도 보강했습니다. | 앞으로 인증 테스트는 Kakao OAuth mock, 로컬 seed, 또는 test fixture로 처리합니다. |
 | 완료 | Seed API profile 제한 | seed API는 데모에는 편하지만 운영에 열려 있으면 임의 데이터가 생성될 수 있습니다. | seed controller/service에 `@Profile({"local", "test"})`를 적용했습니다. | 배포 데모 데이터가 필요하면 운영 API가 아니라 DB migration, private admin, 일회성 운영 스크립트 중 하나로 분리합니다. |
 | 완료 | Kakao Local 연동 | 기존 DB 검색만으로는 실제 앱의 장소 검색 UX를 검증하기 어렵습니다. 명세의 `PLACE-001/002`도 Kakao 키워드/주소 검색 성격에 가깝습니다. | Kakao Local client를 추가했고, 키가 있을 때 외부 API를 호출하도록 했습니다. 키가 없으면 DB fallback을 사용합니다. | 프론트 연동 전 로컬 `.env`에 `KAKAO_LOCAL_REST_API_KEY`를 넣고 검색 결과가 실제로 나오는지 확인합니다. |
-| 완료 | Kakao age/gender 미동의 처리 | 카카오는 성별/연령대 권한이 없거나 사용자가 동의하지 않으면 값을 주지 않습니다. 우리 서비스는 방장 판단에 성별/연령대가 필요해서 가입 완료 전에는 값을 받아야 합니다. | 로그인 시 값이 없으면 `PRIVATE`로 저장합니다. 사용자가 CB-02에서 직접 입력하면 `profileCompleted=true`가 됩니다. | MVP에서는 "직접 입력 필수 + 공개 여부 선택"이 가장 안정적입니다. 나중에 카카오 권한을 받으면 기본값 prefill만 하고, 사용자가 비공개 여부를 선택하게 합니다. |
-| 열림 | `AUTH_REQUIRED_PROFILE_INFO` 메시지 | 기존 명세에는 성별/연령대 동의 실패 케이스가 있었지만, 현재 UX는 미동의를 로그인 실패로 막지 않습니다. | Kakao 응답 구조가 깨졌거나 지원하지 않는 값이면 `AUTH_REQUIRED_PROFILE_INFO`가 날 수 있습니다. 일반적인 age/gender 미동의는 `PRIVATE` 저장 후 CB-02로 보냅니다. | 에러 메시지를 "카카오 프로필 정보를 확인할 수 없습니다."처럼 넓은 의미로 조정하거나, 실제 age/gender 미동의 실패 정책을 다시 채택할 때만 현재 메시지를 유지합니다. |
+| 완료 | Kakao age/gender 미동의 처리 | 카카오는 성별/연령대 권한이 없거나 사용자가 동의하지 않으면 값을 주지 않습니다. 우리 서비스는 방장 판단에 성별/연령대가 필요해서 가입 완료 전에는 값을 받아야 합니다. | 로그인 시 값이 없으면 `NULL`로 저장합니다. 사용자가 CB-02에서 직접 입력하면 `profileCompleted=true`가 됩니다. | MVP에서는 "직접 입력 필수 + 비공개 없음"으로 확정했습니다. 나중에 카카오 권한을 받으면 기본값 prefill은 가능하지만, 최종 가입 완료에는 사용자가 값이 들어간 상태로 제출해야 합니다. |
+| 완료 | 프로필 비공개 필드 제거 | 방장 판단에 필요한 연령대/성별을 비공개로 숨길 수 있으면 UX와 안전 정책이 충돌합니다. | `PRIVATE` enum과 `ageVisible`, `genderVisible` 요청/응답/DB 필드를 제거했습니다. 기존 DB의 `PRIVATE` 값은 V3 migration에서 `NULL`로 정리합니다. | 프론트 CB-02 화면에서도 비공개 chip을 제거하고, 두 필드를 필수 선택으로 처리합니다. |
+| 열림 | `AUTH_REQUIRED_PROFILE_INFO` 메시지 | 기존 명세에는 성별/연령대 동의 실패 케이스가 있었지만, 현재 UX는 미동의를 로그인 실패로 막지 않습니다. | Kakao 응답 구조가 깨졌거나 지원하지 않는 값이면 `AUTH_REQUIRED_PROFILE_INFO`가 날 수 있습니다. 일반적인 age/gender 미동의는 비어 있는 프로필로 저장한 뒤 CB-02로 보냅니다. | 에러 메시지를 "카카오 프로필 정보를 확인할 수 없습니다."처럼 넓은 의미로 조정하거나, 실제 age/gender 미동의 실패 정책을 다시 채택할 때만 현재 메시지를 유지합니다. |
 | 열림 | Profile completion guard | 프론트가 `profileCompleted=false` 사용자를 CB-02로 보내도, 사용자가 토큰을 들고 직접 서비스 API를 호출하는 우회는 가능합니다. | 이번에는 guard를 넣지 않았습니다. 프론트 플로우에서 먼저 막는 상태입니다. | 구현량은 크지 않습니다. 인증이 안정화된 뒤 `PATCH /api/users/me/profile`, `GET /api/users/me`, auth/health 정도만 예외로 두고 나머지를 막는 interceptor/filter를 추가하는 것이 좋습니다. |
 | 열림 | Kakao Local 장애 fallback | Kakao Local 장애나 quota 초과가 발생하면 장소 검색 UX가 흔들릴 수 있습니다. | 현재는 키가 없을 때 DB fallback을 사용합니다. 외부 호출 실패 시 정책은 아직 별도 확정하지 않았습니다. | 운영 전 quota/error 정책을 정하고, 필요하면 장애 시 DB fallback을 명시적으로 추가합니다. |
 | 열림 | Room detail 집계 범위 | 현재 room detail 응답은 명세 필수 필드 중심입니다. 화면에서 방 상세에 더 많은 집계 정보가 필요하면 프론트가 여러 API를 호출해야 할 수 있습니다. | `ROOM-003` 기본 형태를 우선 구현했습니다. | FE 화면을 붙이면서 필요한 필드를 확인한 뒤, 한 화면에서 항상 같이 쓰는 데이터만 `ROOM-003`에 확장합니다. |
-| 열림 | Schedule validator 깊이 | 일정은 경로, 도보/택시, 공연 전후 시간, 모달 조건이 섞여 있어 단순 CRUD보다 오작동 위험이 큽니다. | draft preview/commit 구조와 저장 흐름은 만들었지만, 세부 초과 시간 계산은 단순화되어 있습니다. | 일정 작업은 마지막에 별도 브랜치로 잡고, 화면 요구사항과 테스트 케이스를 먼저 확정한 뒤 구현합니다. |
+| 열림 | Schedule validator 깊이 | 일정은 경로, 도보/택시, 공연 전후 시간, 모달 조건이 섞여 있어 단순 CRUD보다 오작동 위험이 큽니다. | timeline/map/draft preview/commit API와 저장 흐름은 만들었지만, 자동 일정 계산기와 세부 초과 시간 계산은 단순화되어 있습니다. | 일정 작업은 마지막에 별도 브랜치로 잡고, 화면 요구사항과 테스트 케이스를 먼저 확정한 뒤 구현합니다. |
 
 ## 구현 중 발생한 문제
 

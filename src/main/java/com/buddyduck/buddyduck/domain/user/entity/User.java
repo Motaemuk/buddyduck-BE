@@ -32,24 +32,18 @@ public class User extends BaseTimeEntity {
 	private String nickname;
 
 	@Enumerated(EnumType.STRING)
-	@Column(name = "age_range", nullable = false, length = 20)
-	private AgeRange ageRange = AgeRange.PRIVATE;
+	@Column(name = "age_range", length = 20)
+	private AgeRange ageRange;
 
 	@Enumerated(EnumType.STRING)
-	@Column(nullable = false, length = 20)
-	private UserGender gender = UserGender.PRIVATE;
+	@Column(length = 20)
+	private UserGender gender;
 
 	@Column(name = "avatar_color", nullable = false, length = 20)
 	private String avatarColor = "#FACC15";
 
 	@Column(name = "profile_completed", nullable = false)
 	private boolean profileCompleted = false;
-
-	@Column(name = "age_visible", nullable = false)
-	private boolean ageVisible = false;
-
-	@Column(name = "gender_visible", nullable = false)
-	private boolean genderVisible = false;
 
 	public static User createKakao(String kakaoId, String nickname, AgeRange ageRange, UserGender gender) {
 		User user = new User();
@@ -71,15 +65,11 @@ public class User extends BaseTimeEntity {
 	public void completeProfile(
 		String nickname,
 		AgeRange ageRange,
-		UserGender gender,
-		boolean ageVisible,
-		boolean genderVisible
+		UserGender gender
 	) {
 		this.nickname = nickname;
 		this.ageRange = ageRange;
 		this.gender = gender;
-		this.ageVisible = ageVisible;
-		this.genderVisible = genderVisible;
 		this.profileCompleted = true;
 	}
 }

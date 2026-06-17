@@ -88,7 +88,7 @@ class AuthServiceTest {
 			AgeRange.TWENTIES,
 			UserGender.MALE
 		);
-		existingUser.completeProfile("local_duck", AgeRange.TWENTIES, UserGender.MALE, false, true);
+		existingUser.completeProfile("local_duck", AgeRange.TWENTIES, UserGender.MALE);
 		userRepository.save(existingUser);
 		given(kakaoAuthClient.getUserInfo("auth-code", "http://localhost:5173/oauth/kakao/callback"))
 			.willReturn(new KakaoUserInfo("12345", "kakao_changed", AgeRange.THIRTIES, UserGender.FEMALE));
@@ -103,14 +103,12 @@ class AuthServiceTest {
 		assertThat(updatedUser.getNickname()).isEqualTo("local_duck");
 		assertThat(updatedUser.getAgeRange()).isEqualTo(AgeRange.TWENTIES);
 		assertThat(updatedUser.getGender()).isEqualTo(UserGender.MALE);
-		assertThat(updatedUser.isAgeVisible()).isFalse();
-		assertThat(updatedUser.isGenderVisible()).isTrue();
 	}
 
 	@Test
-	void Kakao_연령대와_성별이_PRIVATE이어도_회원가입한다() {
+	void Kakao_연령대와_성별이_없어도_미완료_회원으로_가입한다() {
 		given(kakaoAuthClient.getUserInfo("auth-code", "http://localhost:5173/oauth/kakao/callback"))
-			.willReturn(new KakaoUserInfo("12345", "duck_fan", AgeRange.PRIVATE, UserGender.PRIVATE));
+			.willReturn(new KakaoUserInfo("12345", "duck_fan", null, null));
 
 		LoginResponse response = authService.loginWithKakao(
 			new KakaoLoginRequest("auth-code", "http://localhost:5173/oauth/kakao/callback")
@@ -119,8 +117,8 @@ class AuthServiceTest {
 		User savedUser = userRepository.findByKakaoId("12345").orElseThrow();
 		assertThat(response.isNewUser()).isTrue();
 		assertThat(response.profileCompleted()).isFalse();
-		assertThat(savedUser.getAgeRange()).isEqualTo(AgeRange.PRIVATE);
-		assertThat(savedUser.getGender()).isEqualTo(UserGender.PRIVATE);
+		assertThat(savedUser.getAgeRange()).isNull();
+		assertThat(savedUser.getGender()).isNull();
 	}
 
 	@Test

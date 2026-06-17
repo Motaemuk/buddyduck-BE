@@ -18,6 +18,7 @@
 - `POST /api/dev/seed/concerts`는 로컬/데모용 임시 API입니다. 운영 배포 전 제거하거나 접근 제한을 걸어야 합니다.
 - `GET /api/places/search`, `GET /api/places/geocode`, `POST /api/places`는 모두 `Authorization: Bearer {accessToken}`이 필요합니다.
 - `GET /api/places/search`, `GET /api/places/geocode`는 현재 외부 Kakao Local 실시간 호출이 아니라 DB에 저장된 place 후보를 조회합니다.
+- `GET /api/places/search`의 `concertId`, `roomId`는 명세 호환을 위해 받을 수 있지만, 현재 DB 후보 검색에서는 필터로 사용하지 않습니다.
 - `POST /api/places`는 프론트가 선택한 장소를 서버 DB에 upsert할 때 사용합니다.
 
 ## 남은 결정

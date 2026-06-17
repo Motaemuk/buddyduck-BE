@@ -29,6 +29,7 @@ public class PlaceController {
 		@RequestParam(required = false) Long concertId,
 		@RequestParam(required = false) Long roomId
 	) {
+		// Reserved for context-aware Kakao Local search; DB-backed fallback search ignores them for now.
 		return ApiResponse.onSuccess(
 			GeneralSuccessCode.OK,
 			placeService.searchPlaces(keyword, concertId, roomId)

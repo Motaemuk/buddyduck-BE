@@ -94,6 +94,30 @@ class PlaceControllerTest {
 	}
 
 	@Test
+	void 빈_주소는_400을_응답한다() throws Exception {
+		mockMvc.perform(get("/api/places/geocode")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("address", " "))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON400"));
+	}
+
+	@Test
+	void 장소_upsert는_인증이_필요하다() throws Exception {
+		mockMvc.perform(post("/api/places")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of(
+					"provider", "KAKAO_KEYWORD",
+					"name", "잠실 카페 무드",
+					"address", "서울 송파구 올림픽로 300",
+					"lat", 37.515,
+					"lng", 127.102
+				))))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("COMMON401"));
+	}
+
+	@Test
 	void 선택한_장소를_upsert하면_placeId를_반환한다() throws Exception {
 		String payload = objectMapper.writeValueAsString(Map.of(
 			"provider", "KAKAO_KEYWORD",
@@ -123,6 +147,40 @@ class PlaceControllerTest {
 			Integer.class,
 			"KAKAO_KEYWORD",
 			"123456"
+		);
+		assertThat(count).isEqualTo(1);
+	}
+
+	@Test
+	void providerPlaceId가_없으면_이름과_주소로_기존_장소를_재사용한다() throws Exception {
+		String payload = objectMapper.writeValueAsString(Map.of(
+			"provider", "KAKAO_KEYWORD",
+			"name", "잠실 카페 무드",
+			"address", "서울 송파구 올림픽로 300",
+			"lat", 37.515,
+			"lng", 127.102
+		));
+
+		mockMvc.perform(post("/api/places")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.placeId").isNumber());
+
+		mockMvc.perform(post("/api/places")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(payload))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.placeId").isNumber());
+
+		Integer count = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM places WHERE provider = ? AND name = ? AND address = ?",
+			Integer.class,
+			"KAKAO_KEYWORD",
+			"잠실 카페 무드",
+			"서울 송파구 올림픽로 300"
 		);
 		assertThat(count).isEqualTo(1);
 	}

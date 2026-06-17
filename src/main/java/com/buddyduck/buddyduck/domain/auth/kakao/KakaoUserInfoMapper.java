@@ -3,6 +3,7 @@ package com.buddyduck.buddyduck.domain.auth.kakao;
 import com.buddyduck.buddyduck.domain.auth.kakao.dto.KakaoUserInfo;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
+import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
@@ -52,7 +53,7 @@ public class KakaoUserInfoMapper {
 		if (value == null || value.isBlank()) {
 			return UserGender.PRIVATE;
 		}
-		return switch (value.toLowerCase()) {
+		return switch (value.toLowerCase(Locale.ROOT)) {
 			case "female" -> UserGender.FEMALE;
 			case "male" -> UserGender.MALE;
 			default -> throw new IllegalArgumentException("Unsupported Kakao gender: " + value);

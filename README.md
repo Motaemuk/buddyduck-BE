@@ -76,6 +76,7 @@ JWT_SECRET_KEY=replace-with-at-least-32-byte-secret-key
 JWT_ACCESS_EXPIRATION=3600000
 KAKAO_CLIENT_ID=replace-with-kakao-rest-api-key
 KAKAO_CLIENT_SECRET=
+KAKAO_ALLOWED_REDIRECT_URIS=http://localhost:5173/oauth/kakao/callback
 ```
 
 Kakao Developers setup:
@@ -90,7 +91,7 @@ Kakao Developers setup:
 Login request:
 
 ```bash
-curl -X POST http://localhost:8080/api/auth/kakao \
+curl -X POST http://localhost:8080/api/auth/kakao/login \
   -H 'Content-Type: application/json' \
   -d '{
     "code": "<kakao-authorization-code>",
@@ -104,6 +105,7 @@ Login response result:
 {
   "accessToken": "<service-jwt>",
   "isNewUser": true,
+  "profileCompleted": false,
   "user": {
     "id": 1,
     "nickname": "duck_fan"
@@ -157,9 +159,10 @@ DB_PASSWORD=<database-password>
 - Common API response envelope
 - Common exception handler
 - `GET /api/health`
-- `POST /api/auth/kakao`
+- `POST /api/auth/kakao/login`
 - JWT bearer authentication
 - `GET /api/users/me`
+- `PATCH /api/users/me/profile`
 - ERD-based JPA domain skeleton and repositories
 - Local MySQL Docker Compose
 - Flyway schema migration baseline

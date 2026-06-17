@@ -1,16 +1,19 @@
 package com.buddyduck.buddyduck.domain.auth.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import com.buddyduck.buddyduck.domain.auth.dto.KakaoLoginRequest;
 import com.buddyduck.buddyduck.domain.auth.dto.LoginResponse;
+import com.buddyduck.buddyduck.domain.auth.exception.AuthErrorCode;
 import com.buddyduck.buddyduck.domain.auth.kakao.KakaoAuthClient;
 import com.buddyduck.buddyduck.domain.auth.kakao.dto.KakaoUserInfo;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
+import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -118,5 +121,15 @@ class AuthServiceTest {
 		assertThat(response.profileCompleted()).isFalse();
 		assertThat(savedUser.getAgeRange()).isEqualTo(AgeRange.PRIVATE);
 		assertThat(savedUser.getGender()).isEqualTo(UserGender.PRIVATE);
+	}
+
+	@Test
+	void 허용되지_않은_redirectUri이면_로그인을_거부한다() {
+		assertThatThrownBy(() -> authService.loginWithKakao(
+			new KakaoLoginRequest("auth-code", "http://malicious.example.com/oauth/kakao/callback")
+		))
+			.isInstanceOf(ProjectException.class)
+			.extracting("errorCode")
+			.isEqualTo(AuthErrorCode.INVALID_REDIRECT_URI);
 	}
 }

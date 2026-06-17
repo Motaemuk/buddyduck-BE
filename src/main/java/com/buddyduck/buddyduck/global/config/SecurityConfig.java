@@ -41,7 +41,8 @@ public class SecurityConfig {
 			)
 			.authorizeHttpRequests(auth -> auth
 				.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
-				.requestMatchers("/api/auth/**", "/error").permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/auth/kakao/login").permitAll()
+				.requestMatchers("/error").permitAll()
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

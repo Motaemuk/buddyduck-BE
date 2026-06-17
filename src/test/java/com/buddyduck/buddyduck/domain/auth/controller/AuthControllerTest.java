@@ -43,7 +43,7 @@ class AuthControllerTest {
 				new LoginUserSummary(1L, "duck_fan")
 			));
 
-		mockMvc.perform(post("/api/auth/kakao")
+		mockMvc.perform(post("/api/auth/kakao/login")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(Map.of(
 					"code", "auth-code",
@@ -61,7 +61,7 @@ class AuthControllerTest {
 
 	@Test
 	void Kakao_로그인_요청에_redirectUri가_없으면_400을_응답한다() throws Exception {
-		mockMvc.perform(post("/api/auth/kakao")
+		mockMvc.perform(post("/api/auth/kakao/login")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(Map.of(
 					"code", "auth-code"

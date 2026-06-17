@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.buddyduck.buddyduck.domain.auth.kakao.dto.KakaoUserInfo;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
+import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -69,17 +70,21 @@ class KakaoUserInfoMapperTest {
 	}
 
 	private Map<String, Object> userAttributes(String id, String nickname, String ageRange, String gender) {
-		return Map.of(
-			"id", id,
-			"kakao_account", Map.of(
-				"profile", Map.of("nickname", nickname),
-				"age_range", nullableString(ageRange),
-				"gender", nullableString(gender)
-			)
-		);
-	}
+		Map<String, Object> profile = new HashMap<>();
+		profile.put("nickname", nickname);
 
-	private Object nullableString(String value) {
-		return value == null ? "" : value;
+		Map<String, Object> kakaoAccount = new HashMap<>();
+		kakaoAccount.put("profile", profile);
+		if (ageRange != null) {
+			kakaoAccount.put("age_range", ageRange);
+		}
+		if (gender != null) {
+			kakaoAccount.put("gender", gender);
+		}
+
+		Map<String, Object> attributes = new HashMap<>();
+		attributes.put("id", id);
+		attributes.put("kakao_account", kakaoAccount);
+		return attributes;
 	}
 }

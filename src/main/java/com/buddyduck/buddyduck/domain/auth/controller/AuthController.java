@@ -19,7 +19,7 @@ public class AuthController {
 
 	private final AuthService authService;
 
-	@PostMapping("/kakao")
+	@PostMapping("/kakao/login")
 	public ApiResponse<LoginResponse> loginWithKakao(@Valid @RequestBody KakaoLoginRequest request) {
 		return ApiResponse.onSuccess(GeneralSuccessCode.OK, authService.loginWithKakao(request));
 	}

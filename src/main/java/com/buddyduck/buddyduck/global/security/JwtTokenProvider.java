@@ -7,6 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
+import java.util.Objects;
 import java.util.Optional;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,9 +29,10 @@ public class JwtTokenProvider {
 
 	public String createAccessToken(AuthUser authUser) {
 		Instant now = Instant.now();
+		Long userId = Objects.requireNonNull(authUser.userId(), "authUser.userId must not be null");
 
 		return Jwts.builder()
-			.subject(String.valueOf(authUser.userId()))
+			.subject(String.valueOf(userId))
 			.issuedAt(Date.from(now))
 			.expiration(Date.from(now.plus(accessExpiration)))
 			.signWith(secretKey)

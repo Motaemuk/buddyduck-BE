@@ -45,7 +45,7 @@ public class KakaoRestClient implements KakaoAuthClient {
 			Map<String, Object> attributes = requestUserInfo(tokenResponse.accessToken());
 			return kakaoUserInfoMapper.map(attributes);
 		} catch (IllegalArgumentException exception) {
-			throw new ProjectException(AuthErrorCode.REQUIRED_PROFILE_INFO);
+			throw new ProjectException(AuthErrorCode.EXTERNAL_ERROR);
 		} catch (RestClientException exception) {
 			throw new ProjectException(AuthErrorCode.EXTERNAL_ERROR);
 		}

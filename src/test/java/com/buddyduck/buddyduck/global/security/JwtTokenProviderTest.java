@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import org.junit.jupiter.api.Test;
@@ -32,5 +33,14 @@ class JwtTokenProviderTest {
 		String token = tokenProvider.createAccessToken(new AuthUser(1L));
 
 		assertThat(tokenProvider.getUserId(token)).isEmpty();
+	}
+
+	@Test
+	void user_id가_null이면_token을_발급하지_않는다() {
+		JwtTokenProvider tokenProvider = new JwtTokenProvider(SECRET_KEY, Duration.ofHours(1).toMillis());
+
+		assertThatThrownBy(() -> tokenProvider.createAccessToken(new AuthUser(null)))
+			.isInstanceOf(NullPointerException.class)
+			.hasMessage("authUser.userId must not be null");
 	}
 }

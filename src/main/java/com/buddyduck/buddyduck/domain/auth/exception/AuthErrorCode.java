@@ -11,6 +11,11 @@ public enum AuthErrorCode implements BaseErrorCode {
 		"AUTH_REQUIRED_PROFILE_INFO",
 		"성별/연령대 동의가 필요합니다."
 	),
+	INVALID_REDIRECT_URI(
+		HttpStatus.BAD_REQUEST,
+		"AUTH_INVALID_REDIRECT_URI",
+		"허용되지 않은 redirectUri입니다."
+	),
 	EXTERNAL_ERROR(
 		HttpStatus.INTERNAL_SERVER_ERROR,
 		"AUTH_EXTERNAL_ERROR",

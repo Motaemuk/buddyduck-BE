@@ -1,0 +1,18 @@
+{
+	email admin@example.com
+}
+
+http://api.boostad.site, https://api.boostad.site {
+	encode gzip
+
+	header {
+		-Server
+	}
+
+	reverse_proxy app:8080
+
+	log {
+		output stdout
+		format console
+	}
+}

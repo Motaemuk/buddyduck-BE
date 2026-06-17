@@ -15,17 +15,19 @@ spring:
 
 spring:
   config:
+    import: optional:file:.env[.properties]
     activate:
       on-profile: local
   datasource:
-    driver-class-name: org.h2.Driver
-    url: jdbc:h2:mem:buddyduck;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
-    username: sa
-    password:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: none
-    database-platform: org.hibernate.dialect.H2Dialect
+      ddl-auto: validate
+  flyway:
+    enabled: true
 
 ---
 
@@ -40,5 +42,23 @@ spring:
     password: ${DB_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: none
-    database-platform: org.hibernate.dialect.MySQLDialect
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+---
+
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:buddyduck-test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true

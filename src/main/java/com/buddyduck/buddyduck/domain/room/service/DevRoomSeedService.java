@@ -28,7 +28,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class DevRoomSeedService {
 
-	private static final String DEMO_HOST_KAKAO_ID = "dev:demo-host";
+	private static final String DEMO_HOST_KAKAO_ID = "seed:demo-host";
+	private static final String LEGACY_DEMO_HOST_KAKAO_ID = "dev:demo-host";
 	private static final String DEMO_CONCERT_SOURCE = "SEED";
 	private static final String DEMO_CONCERT_EXTERNAL_ID = "seed-demo-concert";
 
@@ -43,8 +44,7 @@ public class DevRoomSeedService {
 		LocalDateTime concertEndAt = demoDate.atTime(21, 30);
 		OffsetDateTime meetingAt = demoDate.atTime(14, 0).atOffset(ZoneOffset.ofHours(9));
 
-		User host = userRepository.findByKakaoId(DEMO_HOST_KAKAO_ID)
-			.orElseGet(() -> userRepository.save(createDemoHost()));
+		User host = findDemoHostOrCreate();
 		Concert concert = concertRepository.findBySourceAndExternalId(DEMO_CONCERT_SOURCE, DEMO_CONCERT_EXTERNAL_ID)
 			.orElseGet(() -> concertRepository.save(Concert.create(
 				DEMO_CONCERT_EXTERNAL_ID,
@@ -85,6 +85,12 @@ public class DevRoomSeedService {
 		));
 
 		return new DemoRoomSeedResponse(response.roomId(), response.scheduleId());
+	}
+
+	private User findDemoHostOrCreate() {
+		return userRepository.findByKakaoId(DEMO_HOST_KAKAO_ID)
+			.or(() -> userRepository.findByKakaoId(LEGACY_DEMO_HOST_KAKAO_ID))
+			.orElseGet(() -> userRepository.save(createDemoHost()));
 	}
 
 	private User createDemoHost() {

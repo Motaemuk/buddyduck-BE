@@ -70,4 +70,16 @@ class AuthControllerTest {
 			.andExpect(jsonPath("$.isSuccess").value(false))
 			.andExpect(jsonPath("$.code").value("COMMON400"));
 	}
+
+	@Test
+	void 개발용_로그인은_더이상_지원하지_않는다() throws Exception {
+		mockMvc.perform(post("/api/auth/dev-login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of(
+					"nickname", "moon_armies"
+				))))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.isSuccess").value(false))
+			.andExpect(jsonPath("$.code").value("COMMON404"));
+	}
 }

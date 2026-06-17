@@ -57,4 +57,26 @@ public class Concert extends BaseTimeEntity {
 
 	@Column(nullable = false, length = 30)
 	private String source;
+
+	public static Concert create(
+		String externalId,
+		String title,
+		String venueName,
+		LocalDateTime startAt,
+		LocalDateTime endAt,
+		BigDecimal lat,
+		BigDecimal lng,
+		String source
+	) {
+		Concert concert = new Concert();
+		concert.externalId = externalId;
+		concert.title = title;
+		concert.venueName = venueName;
+		concert.startAt = startAt;
+		concert.endAt = endAt;
+		concert.lat = lat;
+		concert.lng = lng;
+		concert.source = source;
+		return concert;
+	}
 }

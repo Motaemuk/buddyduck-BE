@@ -1,8 +1,11 @@
 package com.buddyduck.buddyduck.domain.concert.entity;
 
+import com.buddyduck.buddyduck.domain.concert.enums.InterestTag;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -42,6 +45,15 @@ public class ConcertInterestTag {
 	@JoinColumn(name = "concert_id", nullable = false)
 	private Concert concert;
 
+	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 50)
-	private String tag;
+	private InterestTag tag;
+
+	public static ConcertInterestTag create(User user, Concert concert, InterestTag tag) {
+		ConcertInterestTag interestTag = new ConcertInterestTag();
+		interestTag.user = user;
+		interestTag.concert = concert;
+		interestTag.tag = tag;
+		return interestTag;
+	}
 }

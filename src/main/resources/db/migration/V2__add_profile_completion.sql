@@ -1,0 +1,8 @@
+ALTER TABLE users ADD COLUMN profile_completed BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN age_visible BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN gender_visible BOOLEAN NOT NULL DEFAULT FALSE;
+
+UPDATE users
+SET profile_completed = TRUE
+WHERE age_range <> 'PRIVATE'
+  AND gender <> 'PRIVATE';

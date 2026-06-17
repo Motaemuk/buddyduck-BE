@@ -41,4 +41,45 @@ public class User extends BaseTimeEntity {
 
 	@Column(name = "avatar_color", nullable = false, length = 20)
 	private String avatarColor = "#FACC15";
+
+	@Column(name = "profile_completed", nullable = false)
+	private boolean profileCompleted = false;
+
+	@Column(name = "age_visible", nullable = false)
+	private boolean ageVisible = false;
+
+	@Column(name = "gender_visible", nullable = false)
+	private boolean genderVisible = false;
+
+	public static User createKakao(String kakaoId, String nickname, AgeRange ageRange, UserGender gender) {
+		User user = new User();
+		user.kakaoId = kakaoId;
+		user.nickname = nickname;
+		user.ageRange = ageRange;
+		user.gender = gender;
+		return user;
+	}
+
+	public void updateKakaoProfile(AgeRange ageRange, UserGender gender) {
+		if (profileCompleted) {
+			return;
+		}
+		this.ageRange = ageRange;
+		this.gender = gender;
+	}
+
+	public void completeProfile(
+		String nickname,
+		AgeRange ageRange,
+		UserGender gender,
+		boolean ageVisible,
+		boolean genderVisible
+	) {
+		this.nickname = nickname;
+		this.ageRange = ageRange;
+		this.gender = gender;
+		this.ageVisible = ageVisible;
+		this.genderVisible = genderVisible;
+		this.profileCompleted = true;
+	}
 }

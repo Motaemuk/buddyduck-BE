@@ -1,3 +1,17 @@
 spring:
   profiles:
     active: test
+
+jwt:
+  token:
+    secret-key: 01234567890123456789012345678901
+    expiration:
+      access: 3600000
+
+kakao:
+  oauth:
+    client-id: test-client-id
+    client-secret:
+    allowed-redirect-uris: http://localhost:5173/oauth/kakao/callback
+    token-uri: https://kauth.kakao.com/oauth/token
+    user-info-uri: https://kapi.kakao.com/v2/user/me

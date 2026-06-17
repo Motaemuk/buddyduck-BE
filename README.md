@@ -65,6 +65,61 @@ Remove the local MySQL volume when you want a clean database:
 docker compose down -v
 ```
 
+## Kakao OAuth
+
+The frontend receives a Kakao authorization code, then sends it to this backend. The backend exchanges the code for a Kakao token, reads Kakao user info, creates or finds the user, and returns a service JWT.
+
+Required local environment values:
+
+```properties
+JWT_SECRET_KEY=replace-with-at-least-32-byte-secret-key
+JWT_ACCESS_EXPIRATION=3600000
+KAKAO_CLIENT_ID=replace-with-kakao-rest-api-key
+KAKAO_CLIENT_SECRET=
+KAKAO_ALLOWED_REDIRECT_URIS=http://localhost:5173/oauth/kakao/callback
+```
+
+Kakao Developers setup:
+
+- Create a Kakao app and enable Kakao Login.
+- Register the local frontend domain, for example `http://localhost:5173`.
+- Register the exact redirect URI used by the frontend, for example `http://localhost:5173/oauth/kakao/callback`.
+- Copy the REST API key to `KAKAO_CLIENT_ID`.
+- If Kakao client secret is enabled, copy it to `KAKAO_CLIENT_SECRET`; otherwise leave it empty.
+- Configure the profile nickname consent item. Age range and gender are stored when Kakao returns them; otherwise they are saved as `PRIVATE`.
+
+Login request:
+
+```bash
+curl -X POST http://localhost:8080/api/auth/kakao/login \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "code": "<kakao-authorization-code>",
+    "redirectUri": "http://localhost:5173/oauth/kakao/callback"
+  }'
+```
+
+Login response result:
+
+```json
+{
+  "accessToken": "<service-jwt>",
+  "isNewUser": true,
+  "profileCompleted": false,
+  "user": {
+    "id": 1,
+    "nickname": "duck_fan"
+  }
+}
+```
+
+Use the service JWT for protected APIs:
+
+```bash
+curl http://localhost:8080/api/users/me \
+  -H 'Authorization: Bearer <service-jwt>'
+```
+
 ## Test Profile
 
 Tests use the `test` profile with in-memory H2. They do not require Docker.
@@ -104,6 +159,10 @@ DB_PASSWORD=<database-password>
 - Common API response envelope
 - Common exception handler
 - `GET /api/health`
+- `POST /api/auth/kakao/login`
+- JWT bearer authentication
+- `GET /api/users/me`
+- `PATCH /api/users/me/profile`
 - ERD-based JPA domain skeleton and repositories
 - Local MySQL Docker Compose
 - Flyway schema migration baseline

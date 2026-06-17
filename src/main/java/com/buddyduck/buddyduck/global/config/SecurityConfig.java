@@ -1,0 +1,58 @@
+package com.buddyduck.buddyduck.global.config;
+
+import com.buddyduck.buddyduck.global.apiPayload.ApiResponse;
+import com.buddyduck.buddyduck.global.apiPayload.code.BaseErrorCode;
+import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
+import com.buddyduck.buddyduck.global.security.JwtAuthenticationFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final ObjectMapper objectMapper;
+
+	@Bean
+	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		return http
+			.csrf(AbstractHttpConfigurer::disable)
+			.formLogin(AbstractHttpConfigurer::disable)
+			.httpBasic(AbstractHttpConfigurer::disable)
+			.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+			.exceptionHandling(exception -> exception
+				.authenticationEntryPoint((request, response, authException) ->
+					writeErrorResponse(response, GeneralErrorCode.UNAUTHORIZED))
+				.accessDeniedHandler((request, response, accessDeniedException) ->
+					writeErrorResponse(response, GeneralErrorCode.FORBIDDEN))
+			)
+			.authorizeHttpRequests(auth -> auth
+				.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/auth/kakao/login").permitAll()
+				.requestMatchers("/error").permitAll()
+				.anyRequest().authenticated()
+			)
+			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.build();
+	}
+
+	private void writeErrorResponse(HttpServletResponse response, BaseErrorCode errorCode) throws IOException {
+		response.setStatus(errorCode.getStatus().value());
+		response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+		response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		objectMapper.writeValue(response.getWriter(), ApiResponse.onFailure(errorCode, null));
+	}
+}

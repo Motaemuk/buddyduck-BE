@@ -133,10 +133,14 @@ DB_PASSWORD=<database-password>
 JWT_SECRET_KEY=<at-least-32-byte-secret>
 JWT_ACCESS_EXPIRATION=3600000
 
+CORS_ALLOWED_ORIGINS=https://boostad.site,https://www.boostad.site
+
 KAKAO_CLIENT_ID=<kakao-rest-api-key>
 KAKAO_CLIENT_SECRET=
 KAKAO_LOCAL_REST_API_KEY=<kakao-rest-api-key>
 ```
+
+Vercel preview 도메인에서 API를 직접 호출해야 하면 `CORS_ALLOWED_ORIGINS`에 해당 preview origin을 쉼표로 추가한다.
 
 권한을 제한한다.
 

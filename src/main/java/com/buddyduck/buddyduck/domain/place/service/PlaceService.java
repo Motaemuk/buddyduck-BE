@@ -17,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestClientException;
 
 @Service
 @RequiredArgsConstructor
@@ -29,9 +30,13 @@ public class PlaceService {
 	public PlaceSearchResponse searchPlaces(String keyword, Long concertId, Long roomId) {
 		String normalizedKeyword = requireText(keyword);
 		if (kakaoLocalClient.isEnabled()) {
-			return new PlaceSearchResponse(kakaoLocalClient.searchKeyword(normalizedKeyword).stream()
-				.map(PlaceSearchItemResponse::from)
-				.toList());
+			try {
+				return new PlaceSearchResponse(kakaoLocalClient.searchKeyword(normalizedKeyword).stream()
+					.map(PlaceSearchItemResponse::from)
+					.toList());
+			} catch (RestClientException ignored) {
+				// Kakao Local 장애 시 저장된 장소 후보로 응답한다.
+			}
 		}
 
 		List<PlaceSearchItemResponse> items = placeRepository
@@ -50,9 +55,13 @@ public class PlaceService {
 	public GeocodeResponse geocode(String address) {
 		String normalizedAddress = requireText(address);
 		if (kakaoLocalClient.isEnabled()) {
-			return new GeocodeResponse(kakaoLocalClient.searchAddress(normalizedAddress).stream()
-				.map(GeocodeItemResponse::from)
-				.toList());
+			try {
+				return new GeocodeResponse(kakaoLocalClient.searchAddress(normalizedAddress).stream()
+					.map(GeocodeItemResponse::from)
+					.toList());
+			} catch (RestClientException ignored) {
+				// Kakao Local 장애 시 저장된 주소 후보로 응답한다.
+			}
 		}
 
 		List<GeocodeItemResponse> items = placeRepository

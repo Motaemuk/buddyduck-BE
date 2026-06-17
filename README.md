@@ -69,7 +69,7 @@ docker compose down -v
 
 The frontend receives a Kakao authorization code, then sends it to this backend. The backend exchanges the code for a Kakao token, reads Kakao user info, creates or finds the user, and returns a service JWT.
 
-Required local environment values:
+Local environment values:
 
 ```properties
 JWT_SECRET_KEY=replace-with-at-least-32-byte-secret-key
@@ -77,6 +77,7 @@ JWT_ACCESS_EXPIRATION=3600000
 KAKAO_CLIENT_ID=replace-with-kakao-rest-api-key
 KAKAO_CLIENT_SECRET=
 KAKAO_ALLOWED_REDIRECT_URIS=http://localhost:5173/oauth/kakao/callback
+# Optional. If omitted, Kakao Local uses KAKAO_CLIENT_ID.
 KAKAO_LOCAL_REST_API_KEY=replace-with-kakao-rest-api-key
 ```
 
@@ -86,7 +87,7 @@ Kakao Developers setup:
 - Register the local frontend domain, for example `http://localhost:5173`.
 - Register the exact redirect URI used by the frontend, for example `http://localhost:5173/oauth/kakao/callback`.
 - Copy the REST API key to `KAKAO_CLIENT_ID`.
-- Copy the same REST API key to `KAKAO_LOCAL_REST_API_KEY` for Kakao Local place search. If this value is omitted, the backend falls back to `KAKAO_CLIENT_ID`.
+- Optionally copy the same REST API key to `KAKAO_LOCAL_REST_API_KEY` for Kakao Local place search. If this value is omitted, the backend falls back to `KAKAO_CLIENT_ID`.
 - If Kakao client secret is enabled, copy it to `KAKAO_CLIENT_SECRET`; otherwise leave it empty.
 - Configure the profile nickname consent item. Age range and gender are stored when Kakao returns them; otherwise they are saved as `PRIVATE`.
 
@@ -124,13 +125,13 @@ curl http://localhost:8080/api/users/me \
 
 ## Kakao Local
 
-`GET /api/places/search` and `GET /api/places/geocode` call Kakao Local when a REST API key is configured. If no key is configured, they fall back to locally stored `places` rows, which is useful for tests and offline local development.
+`GET /api/places/search` and `GET /api/places/geocode` call Kakao Local when `KAKAO_LOCAL_REST_API_KEY` or `KAKAO_CLIENT_ID` is configured. If no key is configured, they fall back to locally stored `places` rows, which is useful for tests and offline local development.
 
 Kakao Developers setup:
 
 - Open your Kakao app in Kakao Developers.
 - Go to App settings and copy the REST API key.
-- Put the key in `.env` as `KAKAO_LOCAL_REST_API_KEY`.
+- Put the key in `.env` as `KAKAO_LOCAL_REST_API_KEY`, or rely on the existing `KAKAO_CLIENT_ID` fallback when the same Kakao app key is used.
 - No redirect URI is needed for Kakao Local. Redirect URI is only for Kakao Login.
 
 Required request header used by the backend:

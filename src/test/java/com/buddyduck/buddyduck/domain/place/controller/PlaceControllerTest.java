@@ -31,6 +31,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.RestClientException;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -108,6 +109,27 @@ class PlaceControllerTest {
 			.andExpect(jsonPath("$.result.items.length()").value(1))
 			.andExpect(jsonPath("$.result.items[0].name").value("잠실 카페 무드"))
 			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 300"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.515))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.102))
+			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_KEYWORD"));
+	}
+
+	@Test
+	void Kakao_Local_장소명_검색이_실패하면_DB_장소_후보를_반환한다() throws Exception {
+		insertPlace("KAKAO_KEYWORD", "place-1", "잠실 카페 무드", "서울 송파구 올림픽로 300");
+		given(kakaoLocalClient.isEnabled()).willReturn(true);
+		given(kakaoLocalClient.searchKeyword("잠실"))
+			.willThrow(new RestClientException("Kakao Local timeout"));
+
+		mockMvc.perform(get("/api/places/search")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("keyword", "잠실"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].name").value("잠실 카페 무드"))
+			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 300"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.515))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.102))
 			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_KEYWORD"));
 	}
 
@@ -170,6 +192,24 @@ class PlaceControllerTest {
 			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 424"))
 			.andExpect(jsonPath("$.result.items[0].lat").value(37.519))
 			.andExpect(jsonPath("$.result.items[0].lng").value(127.127))
+			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_ADDRESS"));
+	}
+
+	@Test
+	void Kakao_Local_주소_검색이_실패하면_DB_주소_후보를_반환한다() throws Exception {
+		insertPlace("KAKAO_ADDRESS", "addr-1", "KSPO Dome", "서울 송파구 올림픽로 424");
+		given(kakaoLocalClient.isEnabled()).willReturn(true);
+		given(kakaoLocalClient.searchAddress("올림픽로 424"))
+			.willThrow(new RestClientException("Kakao Local timeout"));
+
+		mockMvc.perform(get("/api/places/geocode")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("address", "올림픽로 424"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 424"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.515))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.102))
 			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_ADDRESS"));
 	}
 

@@ -61,4 +61,25 @@ public class JoinRequest extends BaseTimeEntity {
 
 	@Column(name = "decided_at")
 	private LocalDateTime decidedAt;
+
+	public static JoinRequest create(Room room, User user, String message) {
+		JoinRequest joinRequest = new JoinRequest();
+		joinRequest.room = room;
+		joinRequest.user = user;
+		joinRequest.message = message;
+		joinRequest.status = JoinRequestStatus.PENDING;
+		return joinRequest;
+	}
+
+	public void approve(User decidedBy) {
+		this.status = JoinRequestStatus.APPROVED;
+		this.decidedBy = decidedBy;
+		this.decidedAt = LocalDateTime.now();
+	}
+
+	public void reject(User decidedBy) {
+		this.status = JoinRequestStatus.REJECTED;
+		this.decidedBy = decidedBy;
+		this.decidedAt = LocalDateTime.now();
+	}
 }

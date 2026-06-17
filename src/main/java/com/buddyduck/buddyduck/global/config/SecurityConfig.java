@@ -44,6 +44,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.GET, "/api/concerts", "/api/concerts/*").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/auth/kakao/login").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/dev/seed/concerts").permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/dev/seed/demo-room").permitAll()
 				.requestMatchers("/error").permitAll()
 				.anyRequest().authenticated()
 			)

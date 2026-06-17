@@ -75,4 +75,35 @@ public class Room extends BaseTimeEntity {
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private RoomStatus status = RoomStatus.OPEN;
+
+	public static Room create(
+		Concert concert,
+		User hostUser,
+		String title,
+		String description,
+		Integer maxMembers,
+		LocalDateTime meetingAt,
+		Place meetingPlace,
+		Place eventPlace,
+		String openChatUrl,
+		String openChatPassword
+	) {
+		Room room = new Room();
+		room.concert = concert;
+		room.hostUser = hostUser;
+		room.title = title;
+		room.description = description;
+		room.maxMembers = maxMembers;
+		room.meetingAt = meetingAt;
+		room.meetingPlace = meetingPlace;
+		room.eventPlace = eventPlace;
+		room.openChatUrl = openChatUrl;
+		room.openChatPassword = openChatPassword;
+		room.status = RoomStatus.OPEN;
+		return room;
+	}
+
+	public void markFull() {
+		this.status = RoomStatus.FULL;
+	}
 }

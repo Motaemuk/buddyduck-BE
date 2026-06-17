@@ -78,6 +78,8 @@ class AuthControllerTest {
 				.content(objectMapper.writeValueAsString(Map.of(
 					"nickname", "moon_armies"
 				))))
-			.andExpect(status().isNotFound());
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.isSuccess").value(false))
+			.andExpect(jsonPath("$.code").value("COMMON404"));
 	}
 }

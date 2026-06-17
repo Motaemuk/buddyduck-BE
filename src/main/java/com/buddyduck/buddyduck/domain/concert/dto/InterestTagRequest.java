@@ -6,6 +6,6 @@ import java.util.List;
 
 public record InterestTagRequest(
 	@NotNull
-	List<InterestTag> tags
+	List<@NotNull InterestTag> tags
 ) {
 }

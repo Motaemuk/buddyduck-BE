@@ -155,6 +155,21 @@ class ConcertControllerTest {
 	}
 
 	@Test
+	void null_관심_태그는_400을_응답한다() throws Exception {
+		Long concertId = insertConcert("seed-null-tags", "AURORA LIVE", "KSPO Dome", LocalDateTime.of(2026, 6, 15, 19, 0));
+		User user = saveCompletedUser("duck_fan");
+
+		mockMvc.perform(put("/api/concerts/{concertId}/interest-tags/me", concertId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(user))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+					{"tags":[null]}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON400"));
+	}
+
+	@Test
 	void 공연_seed를_생성한다() throws Exception {
 		mockMvc.perform(post("/api/dev/seed/concerts"))
 			.andExpect(status().isOk())

@@ -13,7 +13,7 @@
 - `GET /api/concerts`, `GET /api/concerts/{concertId}`는 인증 없이 호출할 수 있습니다.
 - `GET /api/concerts/{concertId}/interest-tags/me`, `PUT /api/concerts/{concertId}/interest-tags/me`는 `Authorization: Bearer {accessToken}`이 필요합니다.
 - 공연 시간 응답은 `2026-06-15T19:00:00+09:00` 형태의 KST offset 문자열로 내려갑니다.
-- 관심 태그 enum은 현재 `GOODS_BUYING`, `CAFE_VISIT`, `MEAL_TOGETHER`, `PHOTO_TAKING`, `AFTER_PARTY`를 사용합니다.
+- 관심 태그 enum은 현재 `GOODS_BUYING`, `CAFE_VISIT`, `MEAL_TOGETHER`, `PHOTO_SPOT`, `PHOTOCARD_TRADE`, `ACCOMMODATION_SHARE`, `ENTRY_WAITING`을 사용합니다.
 - `POST /api/dev/seed/concerts`는 로컬/데모용 임시 API입니다. 운영 배포 전 제거하거나 접근 제한을 걸어야 합니다.
 
 ## 남은 결정

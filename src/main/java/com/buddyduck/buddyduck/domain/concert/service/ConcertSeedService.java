@@ -7,6 +7,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,17 +26,21 @@ public class ConcertSeedService {
 			if (concertRepository.existsBySourceAndExternalId(SOURCE, seed.externalId())) {
 				continue;
 			}
-			concertRepository.save(Concert.create(
-				seed.externalId(),
-				seed.title(),
-				seed.venueName(),
-				seed.startAt(),
-				seed.endAt(),
-				seed.lat(),
-				seed.lng(),
-				SOURCE
-			));
-			createdCount++;
+			try {
+				concertRepository.saveAndFlush(Concert.create(
+					seed.externalId(),
+					seed.title(),
+					seed.venueName(),
+					seed.startAt(),
+					seed.endAt(),
+					seed.lat(),
+					seed.lng(),
+					SOURCE
+				));
+				createdCount++;
+			} catch (DataIntegrityViolationException ignored) {
+				// Another request inserted the same seed between the existence check and save.
+			}
 		}
 		return new SeedConcertsResponse(createdCount);
 	}

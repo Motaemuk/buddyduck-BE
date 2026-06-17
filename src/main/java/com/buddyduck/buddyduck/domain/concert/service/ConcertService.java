@@ -113,7 +113,7 @@ public class ConcertService {
 	}
 
 	private List<InterestTag> deduplicate(List<InterestTag> tags) {
-		if (tags == null) {
+		if (tags == null || tags.contains(null)) {
 			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 		}
 		return List.copyOf(new LinkedHashSet<>(tags));

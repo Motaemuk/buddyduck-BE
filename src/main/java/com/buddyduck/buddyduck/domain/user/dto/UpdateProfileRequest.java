@@ -17,12 +17,6 @@ public record UpdateProfileRequest(
 	AgeRange ageRange,
 
 	@NotNull
-	UserGender gender,
-
-	@NotNull
-	Boolean ageVisible,
-
-	@NotNull
-	Boolean genderVisible
+	UserGender gender
 ) {
 }

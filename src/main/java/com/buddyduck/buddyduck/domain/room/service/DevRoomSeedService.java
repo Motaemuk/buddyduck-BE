@@ -94,8 +94,8 @@ public class DevRoomSeedService {
 	}
 
 	private User createDemoHost() {
-		User user = User.createKakao(DEMO_HOST_KAKAO_ID, "demo_host", AgeRange.PRIVATE, UserGender.PRIVATE);
-		user.completeProfile("demo_host", AgeRange.PRIVATE, UserGender.PRIVATE, false, false);
+		User user = User.createKakao(DEMO_HOST_KAKAO_ID, "demo_host", AgeRange.TWENTIES, UserGender.FEMALE);
+		user.completeProfile("demo_host", AgeRange.TWENTIES, UserGender.FEMALE);
 		return user;
 	}
 }

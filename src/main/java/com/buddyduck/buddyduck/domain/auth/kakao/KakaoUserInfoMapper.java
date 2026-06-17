@@ -34,7 +34,7 @@ public class KakaoUserInfoMapper {
 
 	private AgeRange mapAgeRange(String value) {
 		if (value == null || value.isBlank()) {
-			return AgeRange.PRIVATE;
+			return null;
 		}
 		return switch (value) {
 			case "10~19" -> AgeRange.TEENS;
@@ -51,7 +51,7 @@ public class KakaoUserInfoMapper {
 
 	private UserGender mapGender(String value) {
 		if (value == null || value.isBlank()) {
-			return UserGender.PRIVATE;
+			return null;
 		}
 		return switch (value.toLowerCase(Locale.ROOT)) {
 			case "female" -> UserGender.FEMALE;

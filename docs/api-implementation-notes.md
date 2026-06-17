@@ -16,8 +16,9 @@
 - 공연 시간 응답은 `2026-06-15T19:00:00+09:00` 형태의 KST offset 문자열로 내려갑니다.
 - 관심 태그 enum은 현재 `GOODS_BUYING`, `CAFE_VISIT`, `MEAL_TOGETHER`, `PHOTO_SPOT`, `PHOTOCARD_TRADE`, `ACCOMMODATION_SHARE`, `ENTRY_WAITING`을 사용합니다.
 - `POST /api/dev/seed/concerts`는 로컬/데모용 임시 API입니다. 운영 배포 전 제거하거나 접근 제한을 걸어야 합니다.
+- `GET /api/places/search`, `GET /api/places/geocode`, `POST /api/places`는 모두 `Authorization: Bearer {accessToken}`이 필요합니다.
 - `GET /api/places/search`, `GET /api/places/geocode`는 현재 외부 Kakao Local 실시간 호출이 아니라 DB에 저장된 place 후보를 조회합니다.
-- `POST /api/places`는 인증이 필요하며, 프론트가 선택한 장소를 서버 DB에 upsert할 때 사용합니다.
+- `POST /api/places`는 프론트가 선택한 장소를 서버 DB에 upsert할 때 사용합니다.
 
 ## 남은 결정
 

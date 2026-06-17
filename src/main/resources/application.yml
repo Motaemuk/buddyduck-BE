@@ -1,8 +1,6 @@
 spring:
   application:
     name: buddyduck
-  config:
-    import: optional:file:.env[.properties]
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
   jpa:
@@ -17,6 +15,7 @@ spring:
 
 spring:
   config:
+    import: optional:file:.env[.properties]
     activate:
       on-profile: local
   datasource:

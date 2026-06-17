@@ -156,6 +156,7 @@ CREATE TABLE schedule_slots (
     created_at DATETIME NOT NULL,
     updated_at DATETIME NOT NULL,
     PRIMARY KEY (id),
+    CONSTRAINT uk_schedule_slots_schedule_id UNIQUE (schedule_id, id),
     CONSTRAINT uk_schedule_slots_schedule_sort_order UNIQUE (schedule_id, sort_order),
     CONSTRAINT fk_schedule_slots_schedule FOREIGN KEY (schedule_id) REFERENCES schedules (id),
     CONSTRAINT fk_schedule_slots_place FOREIGN KEY (place_id) REFERENCES places (id)
@@ -178,6 +179,8 @@ CREATE TABLE route_segments (
     PRIMARY KEY (id),
     CONSTRAINT uk_route_segments_schedule_from_to UNIQUE (schedule_id, from_slot_id, to_slot_id),
     CONSTRAINT fk_route_segments_schedule FOREIGN KEY (schedule_id) REFERENCES schedules (id),
-    CONSTRAINT fk_route_segments_from_slot FOREIGN KEY (from_slot_id) REFERENCES schedule_slots (id),
-    CONSTRAINT fk_route_segments_to_slot FOREIGN KEY (to_slot_id) REFERENCES schedule_slots (id)
+    CONSTRAINT fk_route_segments_from_slot FOREIGN KEY (schedule_id, from_slot_id)
+        REFERENCES schedule_slots (schedule_id, id),
+    CONSTRAINT fk_route_segments_to_slot FOREIGN KEY (schedule_id, to_slot_id)
+        REFERENCES schedule_slots (schedule_id, id)
 );

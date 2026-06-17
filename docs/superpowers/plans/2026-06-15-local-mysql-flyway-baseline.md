@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Local MySQL Compose And Env
+## Task 1: Local MySQL Compose And Env
 
 **Files:**
 - Create: `docker-compose.yml`
@@ -23,7 +23,7 @@
 - [x] Run `docker compose config`.
 - [x] Commit: `feat: local MySQL compose 구성`
 
-### Task 2: Flyway Dependency And Profiles
+## Task 2: Flyway Dependency And Profiles
 
 **Files:**
 - Modify: `build.gradle`
@@ -35,7 +35,7 @@
 - [x] Add `test` profile using H2 so tests do not require Docker.
 - [x] Run `./gradlew test`.
 
-### Task 3: Initial Schema Migration
+## Task 3: Initial Schema Migration
 
 **Files:**
 - Create: `src/main/resources/db/migration/V1__init_schema.sql`
@@ -46,13 +46,11 @@
 - [x] Run local MySQL and boot app once against MySQL.
 - [x] Commit: `feat: Flyway migration baseline 추가`
 
-### Task 4: Docs And Handoff
+## Task 4: Docs And Handoff
 
 **Files:**
 - Modify: `README.md`
-- Modify: `/Users/chataehun/inha-learn/CONTINUITY.md`
-- Modify: `/Users/chataehun/inha-learn/findings.md`
-- Modify: `/Users/chataehun/inha-learn/progress.md`
+- Update external continuity notes outside this repository when needed.
 
 - [x] Document local DB start, app boot, and health check.
 - [x] Update root continuity files briefly.

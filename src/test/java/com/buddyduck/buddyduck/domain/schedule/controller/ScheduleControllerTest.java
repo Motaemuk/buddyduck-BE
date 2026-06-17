@@ -14,6 +14,8 @@ import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.security.AuthUser;
 import com.buddyduck.buddyduck.global.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -116,7 +118,26 @@ class ScheduleControllerTest {
 			Integer.class,
 			scheduleId
 		);
+		Integer routeCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM route_segments WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
 		assertThat(slotCount).isEqualTo(0);
+		assertThat(routeCount).isEqualTo(0);
+	}
+
+	@Test
+	void draft_preview는_없는_slot_참조를_400으로_응답한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(draftPayload());
+		ArrayNode routeSegments = (ArrayNode) payload.path("routeSegments");
+		((ObjectNode) routeSegments.get(0)).put("toClientId", "missing-slot");
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isBadRequest());
 	}
 
 	@Test

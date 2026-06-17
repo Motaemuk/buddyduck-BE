@@ -32,10 +32,14 @@ import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -111,6 +115,7 @@ public class ScheduleService {
 		Map<String, DraftRouteSegmentRequest> routeByToClientId = request.routeSegments().stream()
 			.collect(LinkedHashMap::new, (map, route) -> map.put(route.toClientId(), route), Map::putAll);
 		Map<String, ScheduleSlot> savedSlots = new LinkedHashMap<>();
+		Map<Long, Place> placesById = findPlacesById(sortedSlots);
 		LocalDateTime current = schedule.getRoom().getMeetingAt();
 
 		for (DraftSlotRequest draftSlot : sortedSlots) {
@@ -120,7 +125,7 @@ public class ScheduleService {
 			}
 			LocalDateTime startAt = current;
 			LocalDateTime endAt = startAt.plusMinutes(draftSlot.dwellMinutes());
-			Place place = draftSlot.placeId() == null ? null : getPlaceOrThrow(draftSlot.placeId());
+			Place place = draftSlot.placeId() == null ? null : placesById.get(draftSlot.placeId());
 			ScheduleSlot savedSlot = scheduleSlotRepository.save(ScheduleSlot.create(
 				schedule,
 				place,
@@ -216,9 +221,18 @@ public class ScheduleService {
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 	}
 
-	private Place getPlaceOrThrow(Long placeId) {
-		return placeRepository.findById(placeId)
-			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
+	private Map<Long, Place> findPlacesById(List<DraftSlotRequest> draftSlots) {
+		Set<Long> placeIds = draftSlots.stream()
+			.map(DraftSlotRequest::placeId)
+			.filter(Objects::nonNull)
+			.collect(Collectors.toCollection(LinkedHashSet::new));
+		Map<Long, Place> placesById = new LinkedHashMap<>();
+		placeRepository.findAllById(placeIds)
+			.forEach(place -> placesById.put(place.getId(), place));
+		if (placesById.size() != placeIds.size()) {
+			throw new ProjectException(GeneralErrorCode.NOT_FOUND);
+		}
+		return placesById;
 	}
 
 	private ScheduleSlot requiredSlot(Map<String, ScheduleSlot> slots, String clientId) {
@@ -230,8 +244,22 @@ public class ScheduleService {
 	}
 
 	private void validateDraft(DraftScheduleRequest request) {
-		if (request.routeSegments().stream().anyMatch(route -> Objects.equals(route.fromClientId(), route.toClientId()))) {
-			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		Set<String> slotClientIds = new HashSet<>();
+		Set<Integer> slotOrders = new HashSet<>();
+		for (DraftSlotRequest slot : request.slots()) {
+			if (!slotClientIds.add(slot.clientId()) || !slotOrders.add(slot.order())) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
+		}
+
+		Set<String> routeToClientIds = new HashSet<>();
+		for (DraftRouteSegmentRequest route : request.routeSegments()) {
+			if (Objects.equals(route.fromClientId(), route.toClientId())
+				|| !slotClientIds.contains(route.fromClientId())
+				|| !slotClientIds.contains(route.toClientId())
+				|| !routeToClientIds.add(route.toClientId())) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
 		}
 	}
 }

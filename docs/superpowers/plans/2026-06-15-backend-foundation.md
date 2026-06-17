@@ -10,7 +10,7 @@
 
 ---
 
-### Task 1: Project Scaffold
+## Task 1: Project Scaffold
 
 **Files:**
 - Create: Gradle/Spring Boot project files
@@ -23,7 +23,7 @@
 - [x] Run `./gradlew test`.
 - [x] Commit: `feat: backend foundation 구성`
 
-### Task 2: Common API Response And Health
+## Task 2: Common API Response And Health
 
 **Files:**
 - Create: `src/test/java/com/buddyduck/buddyduck/domain/health/controller/HealthControllerTest.java`
@@ -36,7 +36,7 @@
 - [x] Run targeted health test, then full `./gradlew test`.
 - [x] Commit: `feat: health check API 구현`
 
-### Task 3: ERD Domain Skeleton
+## Task 3: ERD Domain Skeleton
 
 **Files:**
 - Create: `src/main/java/com/buddyduck/buddyduck/global/entity/BaseTimeEntity.java`
@@ -49,13 +49,11 @@
 - [x] Run `./gradlew test`.
 - [x] Commit: `feat: ERD 기반 domain skeleton 추가`
 
-### Task 4: Developer Docs And Continuity
+## Task 4: Developer Docs And Continuity
 
 **Files:**
 - Modify: `README.md`
-- Modify: `/Users/chataehun/inha-learn/findings.md`
-- Modify: `/Users/chataehun/inha-learn/progress.md`
-- Modify: `/Users/chataehun/inha-learn/CONTINUITY.md`
+- Update external continuity notes outside this repository when needed.
 
 - [x] Document local run and environment variable names without secrets.
 - [x] Keep root context files short and update only durable outcomes.

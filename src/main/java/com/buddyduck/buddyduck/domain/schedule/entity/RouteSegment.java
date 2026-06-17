@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.schedule.entity;
 
 import com.buddyduck.buddyduck.domain.schedule.enums.RouteMode;
+import com.buddyduck.buddyduck.global.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,7 +30,7 @@ import lombok.NoArgsConstructor;
 	}
 )
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RouteSegment {
+public class RouteSegment extends BaseTimeEntity {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)

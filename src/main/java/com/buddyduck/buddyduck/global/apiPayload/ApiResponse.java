@@ -1,14 +1,15 @@
 package com.buddyduck.buddyduck.global.apiPayload;
 
-import com.buddyduck.buddyduck.global.apiPayload.code.BaseSuccessCode;
 import com.buddyduck.buddyduck.global.apiPayload.code.BaseErrorCode;
+import com.buddyduck.buddyduck.global.apiPayload.code.BaseSuccessCode;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 @Getter
-@AllArgsConstructor
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
 @JsonPropertyOrder({"isSuccess", "code", "message", "result"})
 public class ApiResponse<T> {
 

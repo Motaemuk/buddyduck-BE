@@ -35,5 +35,5 @@ public class Schedule extends BaseTimeEntity {
 
 	@Version
 	@Column(nullable = false)
-	private Integer version = 0;
+	private Integer version;
 }

@@ -36,7 +36,7 @@ Gabia DNS 관리 화면에서 레코드를 추가한다.
 
 | 타입 | 호스트 | 값/위치 | TTL |
 | --- | --- | --- | --- |
-| A | `api` | `3.34.2.173` | 기본값 사용 |
+| A | `api` | `<ec2-public-ip>` | 기본값 사용 |
 
 저장 후 전파를 확인한다.
 
@@ -47,7 +47,7 @@ dig +short api.boostad.site
 기대값:
 
 ```text
-3.34.2.173
+<ec2-public-ip>
 ```
 
 참고:
@@ -60,7 +60,7 @@ dig +short api.boostad.site
 EC2에 접속한다.
 
 ```bash
-ssh -i ~/.ssh/concert-buddy/2026-inha-cc-10-key.pem deploy@3.34.2.173
+ssh -i ~/.ssh/concert-buddy/2026-inha-cc-10-key.pem deploy@<ec2-public-ip>
 ```
 
 배포 디렉터리를 만든다.
@@ -184,7 +184,7 @@ dig +short api.boostad.site
 해결:
 
 - Gabia DNS A 레코드의 host가 `api`인지 확인한다.
-- 값이 `3.34.2.173`인지 확인한다.
+- 값이 현재 EC2 public IP인지 확인한다.
 - DNS 전파까지 기다린다.
 
 ### Caddy 인증서 발급 실패

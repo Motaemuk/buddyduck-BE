@@ -7,6 +7,7 @@ import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -41,6 +42,15 @@ public class GeneralExceptionAdvice {
 		return ResponseEntity
 			.status(errorCode.getStatus())
 			.body(ApiResponse.onFailure(errorCode, exception.getMessage()));
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException() {
+		BaseErrorCode errorCode = GeneralErrorCode.BAD_REQUEST;
+
+		return ResponseEntity
+			.status(errorCode.getStatus())
+			.body(ApiResponse.onFailure(errorCode, null));
 	}
 
 	@ExceptionHandler(Exception.class)

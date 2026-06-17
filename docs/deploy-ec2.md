@@ -60,7 +60,7 @@ dig +short api.boostad.site
 EC2에 접속한다.
 
 ```bash
-ssh -i ~/.ssh/concert-buddy/2026-inha-cc-10-key.pem deploy@<ec2-public-ip>
+ssh -i ~/.ssh/concert-buddy/<your-key.pem> deploy@<ec2-public-ip>
 ```
 
 배포 디렉터리를 만든다.
@@ -83,10 +83,11 @@ git clone https://github.com/Motaemuk/buddyduck-BE.git .
 git pull
 ```
 
-PR stack을 직접 서버에서 확인해야 하는 동안에는 필요한 브랜치를 checkout한다.
+운영 배포는 임시 feature branch가 아니라 `main` 또는 release tag 기준으로 진행한다.
 
 ```bash
-git checkout chore/ec2-docker-deploy
+git checkout main
+git pull --ff-only origin main
 ```
 
 ## 4. 운영 파일 생성

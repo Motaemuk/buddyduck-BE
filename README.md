@@ -187,11 +187,7 @@ DB_PASSWORD=<database-password>
 
 ## EC2 Docker Deployment
 
-EC2 Docker/Caddy deployment notes are in:
-
-```text
-docs/deploy-ec2.md
-```
+EC2 Docker/Caddy deployment notes are in [docs/deploy-ec2.md](docs/deploy-ec2.md).
 
 ## Current Scope
 

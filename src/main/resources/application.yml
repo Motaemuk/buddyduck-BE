@@ -17,7 +17,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,https://boostad.site,https://www.boostad.site}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
 
 jwt:
   token:
@@ -54,6 +54,10 @@ spring:
       ddl-auto: validate
   flyway:
     enabled: true
+
+app:
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
 ---
 

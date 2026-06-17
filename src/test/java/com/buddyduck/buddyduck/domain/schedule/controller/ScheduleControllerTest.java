@@ -239,7 +239,7 @@ class ScheduleControllerTest {
 
 	private User saveCompletedUser(String nickname) {
 		User user = User.createKakao("kakao-" + nickname, nickname, AgeRange.TWENTIES, UserGender.FEMALE);
-		user.completeProfile(nickname, AgeRange.TWENTIES, UserGender.FEMALE, true, true);
+		user.completeProfile(nickname, AgeRange.TWENTIES, UserGender.FEMALE);
 		return userRepository.save(user);
 	}
 

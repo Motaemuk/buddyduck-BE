@@ -52,21 +52,21 @@ class KakaoUserInfoMapperTest {
 	}
 
 	@Test
-	void 연령대가_없으면_PRIVATE으로_매핑한다() {
+	void 연령대가_없으면_null로_매핑한다() {
 		Map<String, Object> attributes = userAttributes("12345", "duck_fan", null, "female");
 
 		KakaoUserInfo userInfo = mapper.map(attributes);
 
-		assertThat(userInfo.ageRange()).isEqualTo(AgeRange.PRIVATE);
+		assertThat(userInfo.ageRange()).isNull();
 	}
 
 	@Test
-	void 성별이_없으면_PRIVATE으로_매핑한다() {
+	void 성별이_없으면_null로_매핑한다() {
 		Map<String, Object> attributes = userAttributes("12345", "duck_fan", "20~29", null);
 
 		KakaoUserInfo userInfo = mapper.map(attributes);
 
-		assertThat(userInfo.gender()).isEqualTo(UserGender.PRIVATE);
+		assertThat(userInfo.gender()).isNull();
 	}
 
 	private Map<String, Object> userAttributes(String id, String nickname, String ageRange, String gender) {

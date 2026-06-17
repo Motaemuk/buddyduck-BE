@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.place.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,21 +11,27 @@ import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
+import com.buddyduck.buddyduck.domain.place.enums.PlaceSource;
+import com.buddyduck.buddyduck.domain.place.kakao.KakaoLocalClient;
+import com.buddyduck.buddyduck.domain.place.kakao.KakaoLocalPlaceCandidate;
 import com.buddyduck.buddyduck.global.security.AuthUser;
 import com.buddyduck.buddyduck.global.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.client.RestClientException;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -44,6 +51,9 @@ class PlaceControllerTest {
 
 	@Autowired
 	private JwtTokenProvider jwtTokenProvider;
+
+	@MockBean
+	private KakaoLocalClient kakaoLocalClient;
 
 	private User user;
 
@@ -71,6 +81,50 @@ class PlaceControllerTest {
 				.param("keyword", "잠실"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.isSuccess").value(true))
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].name").value("잠실 카페 무드"))
+			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 300"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.515))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.102))
+			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_KEYWORD"));
+	}
+
+	@Test
+	void Kakao_Local이_활성화되면_장소명_검색은_Kakao_후보를_반환한다() throws Exception {
+		given(kakaoLocalClient.isEnabled()).willReturn(true);
+		given(kakaoLocalClient.searchKeyword("잠실 카페"))
+			.willReturn(List.of(new KakaoLocalPlaceCandidate(
+				PlaceSource.KAKAO_KEYWORD,
+				"26338954",
+				"잠실 카페 무드",
+				"서울 송파구 올림픽로 300",
+				new BigDecimal("37.5150000"),
+				new BigDecimal("127.1020000")
+			)));
+
+		mockMvc.perform(get("/api/places/search")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("keyword", "잠실 카페"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].name").value("잠실 카페 무드"))
+			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 300"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.515))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.102))
+			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_KEYWORD"));
+	}
+
+	@Test
+	void Kakao_Local_장소명_검색이_실패하면_DB_장소_후보를_반환한다() throws Exception {
+		insertPlace("KAKAO_KEYWORD", "place-1", "잠실 카페 무드", "서울 송파구 올림픽로 300");
+		given(kakaoLocalClient.isEnabled()).willReturn(true);
+		given(kakaoLocalClient.searchKeyword("잠실"))
+			.willThrow(new RestClientException("Kakao Local timeout"));
+
+		mockMvc.perform(get("/api/places/search")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("keyword", "잠실"))
+			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.result.items.length()").value(1))
 			.andExpect(jsonPath("$.result.items[0].name").value("잠실 카페 무드"))
 			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 300"))
@@ -115,6 +169,48 @@ class PlaceControllerTest {
 				))))
 			.andExpect(status().isUnauthorized())
 			.andExpect(jsonPath("$.code").value("COMMON401"));
+	}
+
+	@Test
+	void Kakao_Local이_활성화되면_주소_검색은_Kakao_주소_후보를_반환한다() throws Exception {
+		given(kakaoLocalClient.isEnabled()).willReturn(true);
+		given(kakaoLocalClient.searchAddress("서울 송파구 올림픽로 424"))
+			.willReturn(List.of(new KakaoLocalPlaceCandidate(
+				PlaceSource.KAKAO_ADDRESS,
+				null,
+				"서울 송파구 올림픽로 424",
+				"서울 송파구 올림픽로 424",
+				new BigDecimal("37.5190000"),
+				new BigDecimal("127.1270000")
+			)));
+
+		mockMvc.perform(get("/api/places/geocode")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("address", "서울 송파구 올림픽로 424"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 424"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.519))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.127))
+			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_ADDRESS"));
+	}
+
+	@Test
+	void Kakao_Local_주소_검색이_실패하면_DB_주소_후보를_반환한다() throws Exception {
+		insertPlace("KAKAO_ADDRESS", "addr-1", "KSPO Dome", "서울 송파구 올림픽로 424");
+		given(kakaoLocalClient.isEnabled()).willReturn(true);
+		given(kakaoLocalClient.searchAddress("올림픽로 424"))
+			.willThrow(new RestClientException("Kakao Local timeout"));
+
+		mockMvc.perform(get("/api/places/geocode")
+				.header(HttpHeaders.AUTHORIZATION, bearer())
+				.param("address", "올림픽로 424"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].address").value("서울 송파구 올림픽로 424"))
+			.andExpect(jsonPath("$.result.items[0].lat").value(37.515))
+			.andExpect(jsonPath("$.result.items[0].lng").value(127.102))
+			.andExpect(jsonPath("$.result.items[0].provider").value("KAKAO_ADDRESS"));
 	}
 
 	@Test

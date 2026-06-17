@@ -14,6 +14,7 @@ import com.buddyduck.buddyduck.global.security.AuthUser;
 import com.buddyduck.buddyduck.global.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -95,6 +96,19 @@ class RoomControllerTest {
 			host.getId()
 		);
 		assertThat(hostMemberCount).isEqualTo(1);
+	}
+
+	@Test
+	void 방_장소_좌표가_범위를_벗어나면_400을_응답한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(createRoomPayload());
+		ObjectNode meetingPlace = (ObjectNode) payload.path("meetingPlace");
+		meetingPlace.put("lat", 91.0);
+
+		mockMvc.perform(post("/api/rooms")
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isBadRequest());
 	}
 
 	@Test
@@ -218,14 +232,19 @@ class RoomControllerTest {
 		Long pendingRoomId = insertRoom(visitor, "신청한 방", 4);
 		insertJoinRequest(pendingRoomId, host.getId(), "신청 중");
 
-		mockMvc.perform(get("/api/me/rooms")
+		MvcResult result = mockMvc.perform(get("/api/me/rooms")
 				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.result.items[0].roomId").value(hostedRoomId))
-			.andExpect(jsonPath("$.result.items[0].viewerRole").value("HOST"))
-			.andExpect(jsonPath("$.result.items[0].viewerJoinStatus").value("APPROVED"))
-			.andExpect(jsonPath("$.result.items[1].roomId").value(pendingRoomId))
-			.andExpect(jsonPath("$.result.items[1].viewerJoinStatus").value("PENDING"));
+			.andReturn();
+
+		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("items");
+		JsonNode hostedRoom = findRoomItem(items, hostedRoomId);
+		JsonNode pendingRoom = findRoomItem(items, pendingRoomId);
+		assertThat(hostedRoom.path("viewerRole").asText()).isEqualTo("HOST");
+		assertThat(hostedRoom.path("viewerJoinStatus").asText()).isEqualTo("APPROVED");
+		assertThat(pendingRoom.path("viewerJoinStatus").asText()).isEqualTo("PENDING");
 	}
 
 	@Test
@@ -401,6 +420,15 @@ class RoomControllerTest {
 			roomId,
 			userId
 		);
+	}
+
+	private JsonNode findRoomItem(JsonNode items, Long roomId) {
+		for (JsonNode item : items) {
+			if (item.path("roomId").asLong() == roomId) {
+				return item;
+			}
+		}
+		throw new AssertionError("room not found: " + roomId);
 	}
 
 	private String bearer(User user) {

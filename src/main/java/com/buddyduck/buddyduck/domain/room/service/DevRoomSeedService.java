@@ -13,15 +13,18 @@ import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Profile({"local", "test"})
 @RequiredArgsConstructor
 public class DevRoomSeedService {
 
@@ -35,6 +38,11 @@ public class DevRoomSeedService {
 
 	@Transactional
 	public DemoRoomSeedResponse seedDemoRoom() {
+		LocalDate demoDate = LocalDate.now().plusDays(14);
+		LocalDateTime concertStartAt = demoDate.atTime(19, 0);
+		LocalDateTime concertEndAt = demoDate.atTime(21, 30);
+		OffsetDateTime meetingAt = demoDate.atTime(14, 0).atOffset(ZoneOffset.ofHours(9));
+
 		User host = userRepository.findByKakaoId(DEMO_HOST_KAKAO_ID)
 			.orElseGet(() -> userRepository.save(createDemoHost()));
 		Concert concert = concertRepository.findBySourceAndExternalId(DEMO_CONCERT_SOURCE, DEMO_CONCERT_EXTERNAL_ID)
@@ -42,8 +50,8 @@ public class DevRoomSeedService {
 				DEMO_CONCERT_EXTERNAL_ID,
 				"AURORA LIVE",
 				"KSPO Dome",
-				LocalDateTime.of(2026, 6, 15, 19, 0),
-				LocalDateTime.of(2026, 6, 15, 21, 30),
+				concertStartAt,
+				concertEndAt,
 				new BigDecimal("37.5190000"),
 				new BigDecimal("127.1270000"),
 				DEMO_CONCERT_SOURCE
@@ -55,7 +63,7 @@ public class DevRoomSeedService {
 			"데모용 방입니다.",
 			4,
 			List.of(InterestTag.GOODS_BUYING, InterestTag.CAFE_VISIT),
-			OffsetDateTime.of(2026, 6, 15, 14, 0, 0, 0, ZoneOffset.ofHours(9)),
+			meetingAt,
 			new RoomPlaceRequest(
 				PlaceSource.KAKAO_ADDRESS,
 				"seed-meeting-place",

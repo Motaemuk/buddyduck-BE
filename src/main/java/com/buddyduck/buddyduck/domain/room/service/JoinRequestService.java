@@ -94,7 +94,7 @@ public class JoinRequestService {
 			.toList();
 
 		int limitedSize = Math.min(size, MAX_PAGE_SIZE);
-		int fromIndex = Math.min(page * limitedSize, allItems.size());
+		int fromIndex = (int) Math.min((long) page * limitedSize, allItems.size());
 		int toIndex = Math.min(fromIndex + limitedSize, allItems.size());
 		return new JoinRequestListResponse(
 			allItems.subList(fromIndex, toIndex),
@@ -106,7 +106,7 @@ public class JoinRequestService {
 
 	@Transactional
 	public JoinRequestApproveResponse approveJoinRequest(Long roomId, Long requestId, Long userId) {
-		Room room = roomService.getRoomOrThrow(roomId);
+		Room room = roomService.getRoomForUpdateOrThrow(roomId);
 		User host = roomService.getUserOrThrow(userId);
 		requireHost(room, userId);
 		JoinRequest joinRequest = getJoinRequestOrThrow(roomId, requestId);

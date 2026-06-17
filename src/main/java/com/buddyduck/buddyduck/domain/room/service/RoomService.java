@@ -34,7 +34,7 @@ import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
-import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -51,6 +51,7 @@ import org.springframework.util.StringUtils;
 public class RoomService {
 
 	private static final int MAX_PAGE_SIZE = 50;
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
 	private final RoomRepository roomRepository;
 	private final RoomMemberRepository roomMemberRepository;
@@ -78,7 +79,7 @@ public class RoomService {
 			request.title(),
 			request.description(),
 			request.maxMembers(),
-			request.meetingAt().toLocalDateTime(),
+			request.meetingAt().atZoneSameInstant(KST).toLocalDateTime(),
 			meetingPlace,
 			eventPlace,
 			request.openChatUrl(),
@@ -128,12 +129,12 @@ public class RoomService {
 		ViewerState viewerState = resolveViewerState(room, userId);
 		boolean full = isFull(room);
 		boolean host = viewerState.role().equals("HOST");
-		boolean approved = viewerState.joinStatus().equals("APPROVED");
+		boolean member = viewerState.role().equals("MEMBER");
 		RoomPermissionsResponse permissions = new RoomPermissionsResponse(
 			viewerState.role().equals("VISITOR") && viewerState.joinStatus().equals("NOT_REQUESTED") && !full && room.getStatus() == RoomStatus.OPEN,
 			host,
-			host || approved,
-			host || approved,
+			host || member,
+			host || member,
 			host
 		);
 		long pendingRequestCount = joinRequestRepository.countByRoomIdAndStatus(roomId, JoinRequestStatus.PENDING);
@@ -183,7 +184,7 @@ public class RoomService {
 	public OpenChatResponse getOpenChat(Long roomId, Long userId) {
 		Room room = getRoomOrThrow(roomId);
 		ViewerState viewerState = resolveViewerState(room, userId);
-		if (!viewerState.role().equals("HOST") && !viewerState.joinStatus().equals("APPROVED")) {
+		if (!viewerState.role().equals("HOST") && !viewerState.role().equals("MEMBER")) {
 			throw new ProjectException(GeneralErrorCode.FORBIDDEN);
 		}
 		return new OpenChatResponse(room.getOpenChatUrl(), room.getOpenChatPassword());
@@ -191,6 +192,11 @@ public class RoomService {
 
 	Room getRoomOrThrow(Long roomId) {
 		return roomRepository.findById(roomId)
+			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
+	}
+
+	Room getRoomForUpdateOrThrow(Long roomId) {
+		return roomRepository.findByIdForUpdate(roomId)
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 	}
 
@@ -233,7 +239,7 @@ public class RoomService {
 	}
 
 	private RoomListResponse page(List<RoomListItemResponse> allItems, int page, int size) {
-		int fromIndex = Math.min(page * size, allItems.size());
+		int fromIndex = (int) Math.min((long) page * size, allItems.size());
 		int toIndex = Math.min(fromIndex + size, allItems.size());
 		return new RoomListResponse(
 			allItems.subList(fromIndex, toIndex),

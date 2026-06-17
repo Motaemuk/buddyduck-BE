@@ -23,7 +23,7 @@
 - `GET /api/places/search`, `GET /api/places/geocode`는 현재 외부 Kakao Local 실시간 호출이 아니라 DB에 저장된 place 후보를 조회합니다.
 - `GET /api/places/search`의 `concertId`, `roomId`는 명세 호환을 위해 받을 수 있지만, 현재 DB 후보 검색에서는 필터로 사용하지 않습니다.
 - `POST /api/places`는 프론트가 선택한 장소를 서버 DB에 upsert할 때 사용합니다.
-- `POST /api/concerts/{concertId}/rooms`의 `maxMembers`는 방장을 포함한 총 정원입니다.
+- `POST /api/rooms`는 요청 body의 `concertId`를 기준으로 방을 생성하며, `maxMembers`는 방장을 포함한 총 정원입니다.
 - 방 생성 시 방장은 자동으로 `room_members`에 `HOST`로 들어갑니다.
 - `GET /api/rooms/{roomId}/open-chat`은 방장 또는 승인된 멤버만 호출할 수 있습니다.
 

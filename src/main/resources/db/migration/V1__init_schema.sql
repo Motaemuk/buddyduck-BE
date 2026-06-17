@@ -13,7 +13,7 @@ CREATE TABLE users (
 
 CREATE TABLE concerts (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    external_id VARCHAR(100),
+    external_id VARCHAR(100) NOT NULL,
     title VARCHAR(200) NOT NULL,
     venue_name VARCHAR(200) NOT NULL,
     start_at DATETIME NOT NULL,
@@ -153,6 +153,8 @@ CREATE TABLE schedule_slots (
     end_at DATETIME NOT NULL,
     dwell_minutes INT NOT NULL,
     locked BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_schedule_slots_schedule_sort_order UNIQUE (schedule_id, sort_order),
     CONSTRAINT fk_schedule_slots_schedule FOREIGN KEY (schedule_id) REFERENCES schedules (id),
@@ -171,6 +173,8 @@ CREATE TABLE route_segments (
     duration_minutes INT NOT NULL,
     provider VARCHAR(30),
     manually_adjusted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at DATETIME NOT NULL,
+    updated_at DATETIME NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_route_segments_schedule_from_to UNIQUE (schedule_id, from_slot_id, to_slot_id),
     CONSTRAINT fk_route_segments_schedule FOREIGN KEY (schedule_id) REFERENCES schedules (id),

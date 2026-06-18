@@ -141,6 +141,7 @@ KAKAO_LOCAL_REST_API_KEY=<kakao-rest-api-key>
 
 KOPIS_SERVICE_KEY=<kopis-service-key>
 KOPIS_SYNC_ON_QUERY=false
+KOPIS_REQUEST_DELAY_MILLIS=100
 KOPIS_INITIAL_IMPORT_DAYS=30
 KOPIS_INITIAL_IMPORT_ROWS=20
 KOPIS_INITIAL_IMPORT_MAX_PAGES=100
@@ -150,6 +151,7 @@ KOPIS_INITIAL_IMPORT_EMPTY_PAGE_TOLERANCE=3
 Vercel preview 도메인에서 API를 직접 호출해야 하면 `CORS_ALLOWED_ORIGINS`에 해당 preview origin을 쉼표로 추가한다.
 KOPIS 기본 endpoint는 공식 OpenAPI 개발가이드의 `http://www.kopis.or.kr/openApi/restful`을 따른다. `https://www.kopis.or.kr`는 redirect 경로를 타며, 초기 적재 중 KOPIS에서 `400 Request Blocked`가 발생할 수 있다.
 KOPIS 초기 적재는 공연 목록 1건마다 상세/시설 조회를 추가로 호출하므로 `KOPIS_INITIAL_IMPORT_ROWS`는 20 정도로 작게 유지한다.
+KOPIS에서 연속 요청을 차단할 수 있으므로 `KOPIS_REQUEST_DELAY_MILLIS`로 외부 요청 사이에 짧은 대기 시간을 둔다.
 `KOPIS_INITIAL_IMPORT_ENABLED=true`는 일반 서버 실행용 `.env.prod`에 계속 넣지 않는다. 초기 적재를 1회 실행할 때만 command 환경변수로 넘긴다.
 
 권한을 제한한다.

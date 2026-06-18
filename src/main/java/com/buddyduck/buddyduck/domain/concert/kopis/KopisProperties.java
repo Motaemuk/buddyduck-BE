@@ -16,6 +16,7 @@ public class KopisProperties {
 	private String serviceKey = "";
 	private String baseUri = "http://www.kopis.or.kr/openApi/restful";
 	private int maxSyncRows = 10;
+	private long requestDelayMillis = 100;
 	private boolean syncOnQuery = false;
 	private InitialImport initialImport = new InitialImport();
 

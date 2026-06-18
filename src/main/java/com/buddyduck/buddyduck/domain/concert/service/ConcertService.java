@@ -8,6 +8,7 @@ import com.buddyduck.buddyduck.domain.concert.dto.InterestTagResponse;
 import com.buddyduck.buddyduck.domain.concert.entity.Concert;
 import com.buddyduck.buddyduck.domain.concert.entity.ConcertInterestTag;
 import com.buddyduck.buddyduck.domain.concert.enums.InterestTag;
+import com.buddyduck.buddyduck.domain.concert.kopis.KopisConcertSyncService;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertInterestTagRepository;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertRepository;
 import com.buddyduck.buddyduck.domain.user.entity.User;
@@ -35,8 +36,8 @@ public class ConcertService {
 	private final ConcertRepository concertRepository;
 	private final ConcertInterestTagRepository concertInterestTagRepository;
 	private final UserRepository userRepository;
+	private final KopisConcertSyncService kopisConcertSyncService;
 
-	@Transactional(readOnly = true)
 	public ConcertListResponse getConcerts(
 		String keyword,
 		LocalDate from,
@@ -48,6 +49,8 @@ public class ConcertService {
 		if (page < 0 || size <= 0) {
 			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 		}
+
+		kopisConcertSyncService.syncConcerts(keyword, from, to, page, size);
 
 		Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE));
 		Page<Concert> concertPage = concertRepository.search(

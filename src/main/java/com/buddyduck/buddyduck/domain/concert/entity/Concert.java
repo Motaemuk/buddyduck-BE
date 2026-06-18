@@ -79,4 +79,20 @@ public class Concert extends BaseTimeEntity {
 		concert.source = source;
 		return concert;
 	}
+
+	public void updateDetails(
+		String title,
+		String venueName,
+		LocalDateTime startAt,
+		LocalDateTime endAt,
+		BigDecimal lat,
+		BigDecimal lng
+	) {
+		this.title = title;
+		this.venueName = venueName;
+		this.startAt = startAt;
+		this.endAt = endAt;
+		this.lat = lat;
+		this.lng = lng;
+	}
 }

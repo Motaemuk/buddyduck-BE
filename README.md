@@ -91,6 +91,8 @@ KAKAO_CLIENT_SECRET=
 KAKAO_ALLOWED_REDIRECT_URIS=http://localhost:5173/oauth/kakao/callback
 # Optional. If omitted, Kakao Local uses KAKAO_CLIENT_ID.
 KAKAO_LOCAL_REST_API_KEY=replace-with-kakao-rest-api-key
+KOPIS_SERVICE_KEY=
+KOPIS_MAX_SYNC_ROWS=10
 ```
 
 Kakao Developers setup:
@@ -151,6 +153,23 @@ Required request header used by the backend:
 ```text
 Authorization: KakaoAK <REST_API_KEY>
 ```
+
+## KOPIS Concert Sync
+
+`GET /api/concerts` keeps its existing response shape. When `KOPIS_SERVICE_KEY` is configured, the backend first fetches a small page from KOPIS, upserts complete rows into `concerts` with `source=KOPIS`, then returns the normal DB-backed concert list.
+
+Local or server environment values:
+
+```properties
+KOPIS_SERVICE_KEY=<kopis-service-key>
+KOPIS_MAX_SYNC_ROWS=10
+```
+
+Notes:
+
+- Do not commit the real KOPIS key.
+- KOPIS date range requests are capped to 31 days, so broad FE ranges should be treated as DB search over already cached data plus the first 31-day sync window.
+- KOPIS provides concert dates and venue coordinates, but not a single machine-readable performance time for every item. Synced KOPIS rows store the start date at `00:00` and end date at `23:59:59`; demo-critical concert times can be manually corrected in the DB later.
 
 ## Test Profile
 

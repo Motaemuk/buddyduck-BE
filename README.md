@@ -156,7 +156,7 @@ Authorization: KakaoAK <REST_API_KEY>
 
 ## KOPIS Concert Sync
 
-`GET /api/concerts` keeps its existing response shape. When `KOPIS_SERVICE_KEY` is configured, the backend first fetches a small page from KOPIS, upserts complete rows into `concerts` with `source=KOPIS`, then returns the normal DB-backed concert list.
+`GET /api/concerts` keeps the normal DB-backed response shape. When `KOPIS_SERVICE_KEY` is configured, the backend first fetches a small page from KOPIS, upserts complete rows into `concerts` with `source=KOPIS`, then returns the concert list.
 
 Local or server environment values:
 
@@ -169,7 +169,9 @@ Notes:
 
 - Do not commit the real KOPIS key.
 - KOPIS date range requests are capped to 31 days, so broad FE ranges should be treated as DB search over already cached data plus the first 31-day sync window.
-- KOPIS provides concert dates and venue coordinates, but not a single machine-readable performance time for every item. Synced KOPIS rows store the start date at `00:00` and end date at `23:59:59`; demo-critical concert times can be manually corrected in the DB later.
+- KOPIS concert detail can include `poster`, `area`, `genrenm`, and `dtguidance`. Synced rows expose them as `posterUrl`, `area`, `genre`, and `timeGuidance`.
+- `dtguidance` is a free-form text guide. If it contains exactly one distinct `HH:mm`, the sync sets `startAt` to that time on the start date. If it has multiple times or no time, `startAt` falls back to `00:00`. `endAt` is stored as the end date at `23:59:59`.
+- `openRoomCount` is calculated from current `OPEN` rooms, not from KOPIS.
 
 ## Test Profile
 

@@ -2,6 +2,7 @@ package com.buddyduck.buddyduck.domain.concert.kopis;
 
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -12,23 +13,44 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.util.UriComponentsBuilder;
 
+@Slf4j
 @Component
-@RequiredArgsConstructor
 public class KopisRestClient implements KopisConcertClient {
 
 	private static final DateTimeFormatter REQUEST_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
 	private static final Pattern TIME_PATTERN = Pattern.compile("(?<!\\d)([01]?\\d|2[0-3]):([0-5]\\d)(?!\\d)");
+	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(3);
+	private static final Duration READ_TIMEOUT = Duration.ofSeconds(5);
 
-	private final RestClient.Builder restClientBuilder;
+	private final RestClient restClient;
 	private final KopisProperties properties;
 	private final KopisXmlParser parser;
+
+	@Autowired
+	public KopisRestClient(RestClient.Builder restClientBuilder, KopisProperties properties, KopisXmlParser parser) {
+		this(
+			restClientBuilder
+				.requestFactory(requestFactory())
+				.build(),
+			properties,
+			parser
+		);
+	}
+
+	KopisRestClient(RestClient restClient, KopisProperties properties, KopisXmlParser parser) {
+		this.restClient = restClient;
+		this.properties = properties;
+		this.parser = parser;
+	}
 
 	@Override
 	public boolean isEnabled() {
@@ -58,10 +80,12 @@ public class KopisRestClient implements KopisConcertClient {
 	private Optional<KopisConcertCandidate> fetchCandidate(KopisConcertListItem item) {
 		Optional<KopisConcertDetail> detail = fetchConcertDetail(item.externalId());
 		if (detail.isEmpty()) {
+			log.debug("Failed to fetch KOPIS concert detail. externalId={}", item.externalId());
 			return Optional.empty();
 		}
 		Optional<KopisFacilityDetail> facility = fetchFacilityDetail(detail.get().facilityId());
 		if (facility.isEmpty()) {
+			log.debug("Failed to fetch KOPIS facility detail. facilityId={}", detail.get().facilityId());
 			return Optional.empty();
 		}
 
@@ -146,11 +170,17 @@ public class KopisRestClient implements KopisConcertClient {
 	}
 
 	private String get(URI uri) {
-		return restClientBuilder.build()
-			.get()
+		return restClient.get()
 			.uri(uri)
 			.retrieve()
 			.body(String.class);
+	}
+
+	private static SimpleClientHttpRequestFactory requestFactory() {
+		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+		requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+		requestFactory.setReadTimeout(READ_TIMEOUT);
+		return requestFactory;
 	}
 
 	private String preferredVenueName(String concertVenueName, String facilityVenueName) {

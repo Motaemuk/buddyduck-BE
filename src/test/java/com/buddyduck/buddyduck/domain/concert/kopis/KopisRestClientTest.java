@@ -32,7 +32,7 @@ class KopisRestClientTest {
 		properties.setServiceKey("test-service-key");
 		properties.setBaseUri("https://kopis.test/openApi/restful");
 
-		client = new KopisRestClient(builder, properties, new KopisXmlParser());
+		client = new KopisRestClient(builder.build(), properties, new KopisXmlParser());
 	}
 
 	@Test
@@ -150,9 +150,20 @@ class KopisRestClientTest {
 	void service_key가_없으면_비활성화된다() {
 		KopisProperties properties = new KopisProperties();
 		properties.setServiceKey(" ");
-		KopisRestClient disabledClient = new KopisRestClient(RestClient.builder(), properties, new KopisXmlParser());
+		KopisRestClient disabledClient = new KopisRestClient(
+			RestClient.builder().build(),
+			properties,
+			new KopisXmlParser()
+		);
 
 		assertThat(disabledClient.isEnabled()).isFalse();
 		assertThat(disabledClient.fetchConcerts(LocalDate.now(), LocalDate.now(), 0, 10, null)).isEmpty();
+	}
+
+	@Test
+	void KOPIS_기본_base_uri는_https를_사용한다() {
+		KopisProperties properties = new KopisProperties();
+
+		assertThat(properties.getBaseUri()).startsWith("https://");
 	}
 }

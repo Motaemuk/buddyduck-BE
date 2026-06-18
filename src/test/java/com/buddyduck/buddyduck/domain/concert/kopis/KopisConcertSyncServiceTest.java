@@ -56,6 +56,10 @@ class KopisConcertSyncServiceTest {
 		assertThat(concert.getTitle()).isEqualTo("AURORA LIVE");
 		assertThat(concert.getVenueName()).isEqualTo("KSPO Dome");
 		assertThat(concert.getLat()).isEqualByComparingTo(new BigDecimal("37.5211200"));
+		assertThat(concert.getPosterUrl()).isEqualTo("https://www.kopis.or.kr/upload/pfmPoster/PF178134.gif");
+		assertThat(concert.getArea()).isEqualTo("서울특별시");
+		assertThat(concert.getGenre()).isEqualTo("대중음악");
+		assertThat(concert.getTimeGuidance()).isEqualTo("토요일(19:00)");
 	}
 
 	@Test
@@ -83,6 +87,7 @@ class KopisConcertSyncServiceTest {
 		Concert concert = concertRepository.findBySourceAndExternalId("KOPIS", "PF178134").orElseThrow();
 		assertThat(concert.getTitle()).isEqualTo("UPDATED LIVE");
 		assertThat(concert.getVenueName()).isEqualTo("KSPO Dome");
+		assertThat(concert.getPosterUrl()).isEqualTo("https://www.kopis.or.kr/upload/pfmPoster/PF178134.gif");
 	}
 
 	private KopisConcertCandidate candidate(String title) {
@@ -93,7 +98,11 @@ class KopisConcertSyncServiceTest {
 			LocalDateTime.of(2026, 6, 20, 0, 0),
 			LocalDateTime.of(2026, 6, 20, 23, 59, 59),
 			new BigDecimal("37.5211200"),
-			new BigDecimal("127.1283636")
+			new BigDecimal("127.1283636"),
+			"https://www.kopis.or.kr/upload/pfmPoster/PF178134.gif",
+			"서울특별시",
+			"대중음악",
+			"토요일(19:00)"
 		);
 	}
 }

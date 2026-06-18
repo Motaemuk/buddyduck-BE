@@ -39,6 +39,10 @@ class KopisXmlParserTest {
 			    <fcltynm>피가로아트홀</fcltynm>
 			    <prfpdfrom>2016.05.12</prfpdfrom>
 			    <prfpdto>2016.06.30</prfpdto>
+			    <poster> http://www.kopis.or.kr/upload/pfmPoster/PF132236.gif </poster>
+			    <area>서울특별시</area>
+			    <genrenm>연극</genrenm>
+			    <dtguidance>화요일 ~ 금요일(20:00)</dtguidance>
 			  </db>
 			</dbs>
 			""");
@@ -48,6 +52,10 @@ class KopisXmlParserTest {
 		assertThat(detail.get().facilityId()).isEqualTo("FC001431");
 		assertThat(detail.get().startDate()).isEqualTo(LocalDate.of(2016, 5, 12));
 		assertThat(detail.get().endDate()).isEqualTo(LocalDate.of(2016, 6, 30));
+		assertThat(detail.get().posterUrl()).isEqualTo("http://www.kopis.or.kr/upload/pfmPoster/PF132236.gif");
+		assertThat(detail.get().area()).isEqualTo("서울특별시");
+		assertThat(detail.get().genre()).isEqualTo("연극");
+		assertThat(detail.get().timeGuidance()).isEqualTo("화요일 ~ 금요일(20:00)");
 	}
 
 	@Test

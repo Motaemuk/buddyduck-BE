@@ -3,10 +3,15 @@ package com.buddyduck.buddyduck.domain.concert.kopis;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -19,6 +24,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 public class KopisRestClient implements KopisConcertClient {
 
 	private static final DateTimeFormatter REQUEST_DATE_FORMATTER = DateTimeFormatter.BASIC_ISO_DATE;
+	private static final Pattern TIME_PATTERN = Pattern.compile("(?<!\\d)([01]?\\d|2[0-3]):([0-5]\\d)(?!\\d)");
 
 	private final RestClient.Builder restClientBuilder;
 	private final KopisProperties properties;
@@ -65,11 +71,36 @@ public class KopisRestClient implements KopisConcertClient {
 			concert.externalId(),
 			concert.title(),
 			preferredVenueName(concert.venueName(), venue.venueName()),
-			concert.startDate().atStartOfDay(),
+			startAt(concert),
 			concert.endDate().atTime(LocalTime.MAX).withNano(0),
 			venue.lat(),
-			venue.lng()
+			venue.lng(),
+			normalizePosterUrl(concert.posterUrl()),
+			concert.area(),
+			concert.genre(),
+			concert.timeGuidance()
 		));
+	}
+
+	private LocalDateTime startAt(KopisConcertDetail concert) {
+		return singleTime(concert.timeGuidance())
+			.map(time -> concert.startDate().atTime(time))
+			.orElseGet(() -> concert.startDate().atStartOfDay());
+	}
+
+	private Optional<LocalTime> singleTime(String timeGuidance) {
+		if (!StringUtils.hasText(timeGuidance)) {
+			return Optional.empty();
+		}
+		Matcher matcher = TIME_PATTERN.matcher(timeGuidance);
+		Set<LocalTime> times = new LinkedHashSet<>();
+		while (matcher.find()) {
+			times.add(LocalTime.of(
+				Integer.parseInt(matcher.group(1)),
+				Integer.parseInt(matcher.group(2))
+			));
+		}
+		return times.size() == 1 ? Optional.of(times.iterator().next()) : Optional.empty();
 	}
 
 	private Optional<KopisConcertDetail> fetchConcertDetail(String externalId) {
@@ -124,5 +155,12 @@ public class KopisRestClient implements KopisConcertClient {
 
 	private String preferredVenueName(String concertVenueName, String facilityVenueName) {
 		return StringUtils.hasText(concertVenueName) ? concertVenueName : facilityVenueName;
+	}
+
+	private String normalizePosterUrl(String posterUrl) {
+		if (!StringUtils.hasText(posterUrl)) {
+			return null;
+		}
+		return posterUrl.trim().replaceFirst("^http://", "https://");
 	}
 }

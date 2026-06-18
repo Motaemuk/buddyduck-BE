@@ -8,18 +8,32 @@ public record ConcertDetailResponse(
 	String title,
 	String venueName,
 	String startAt,
+	String endAt,
 	BigDecimal lat,
-	BigDecimal lng
+	BigDecimal lng,
+	String source,
+	String posterUrl,
+	String area,
+	String genre,
+	String timeGuidance,
+	long openRoomCount
 ) {
 
-	public static ConcertDetailResponse from(Concert concert) {
+	public static ConcertDetailResponse from(Concert concert, long openRoomCount) {
 		return new ConcertDetailResponse(
 			concert.getId(),
 			concert.getTitle(),
 			concert.getVenueName(),
 			DateTimeResponseFormatter.format(concert.getStartAt()),
+			DateTimeResponseFormatter.format(concert.getEndAt()),
 			concert.getLat(),
-			concert.getLng()
+			concert.getLng(),
+			concert.getSource(),
+			concert.getPosterUrl(),
+			concert.getArea(),
+			concert.getGenre(),
+			concert.getTimeGuidance(),
+			openRoomCount
 		);
 	}
 }

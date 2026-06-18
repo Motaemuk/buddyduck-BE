@@ -58,6 +58,18 @@ public class Concert extends BaseTimeEntity {
 	@Column(nullable = false, length = 30)
 	private String source;
 
+	@Column(name = "poster_url", length = 500)
+	private String posterUrl;
+
+	@Column(length = 100)
+	private String area;
+
+	@Column(length = 50)
+	private String genre;
+
+	@Column(name = "time_guidance", length = 500)
+	private String timeGuidance;
+
 	public static Concert create(
 		String externalId,
 		String title,
@@ -94,5 +106,12 @@ public class Concert extends BaseTimeEntity {
 		this.endAt = endAt;
 		this.lat = lat;
 		this.lng = lng;
+	}
+
+	public void updateCardMetadata(String posterUrl, String area, String genre, String timeGuidance) {
+		this.posterUrl = posterUrl;
+		this.area = area;
+		this.genre = genre;
+		this.timeGuidance = timeGuidance;
 	}
 }

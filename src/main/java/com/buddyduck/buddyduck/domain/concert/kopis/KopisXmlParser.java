@@ -55,6 +55,10 @@ class KopisXmlParser {
 		String facilityId = text(element, "mt10id");
 		Optional<LocalDate> startDate = parseDate(text(element, "prfpdfrom"));
 		Optional<LocalDate> endDate = parseDate(text(element, "prfpdto"));
+		String posterUrl = text(element, "poster");
+		String area = text(element, "area");
+		String genre = text(element, "genrenm");
+		String timeGuidance = text(element, "dtguidance");
 
 		if (!StringUtils.hasText(externalId)
 			|| !StringUtils.hasText(title)
@@ -70,7 +74,11 @@ class KopisXmlParser {
 			venueName,
 			facilityId,
 			startDate.get(),
-			endDate.orElse(startDate.get())
+			endDate.orElse(startDate.get()),
+			trimToNull(posterUrl),
+			trimToNull(area),
+			trimToNull(genre),
+			trimToNull(timeGuidance)
 		));
 	}
 
@@ -149,5 +157,9 @@ class KopisXmlParser {
 		} catch (NumberFormatException exception) {
 			return Optional.empty();
 		}
+	}
+
+	private String trimToNull(String value) {
+		return StringUtils.hasText(value) ? value.trim() : null;
 	}
 }

@@ -87,6 +87,12 @@ public class KopisConcertSyncService {
 			Concert concert = concertRepository.findBySourceAndExternalId(SOURCE, candidate.externalId())
 				.map(existing -> update(existing, candidate))
 				.orElseGet(() -> create(candidate));
+			concert.updateCardMetadata(
+				candidate.posterUrl(),
+				candidate.area(),
+				candidate.genre(),
+				candidate.timeGuidance()
+			);
 			concertRepository.save(concert);
 			return true;
 		} catch (DataIntegrityViolationException exception) {

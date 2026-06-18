@@ -8,6 +8,10 @@ record KopisConcertDetail(
 	String venueName,
 	String facilityId,
 	LocalDate startDate,
-	LocalDate endDate
+	LocalDate endDate,
+	String posterUrl,
+	String area,
+	String genre,
+	String timeGuidance
 ) {
 }

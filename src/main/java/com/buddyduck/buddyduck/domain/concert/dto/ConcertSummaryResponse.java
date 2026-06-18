@@ -11,10 +11,15 @@ public record ConcertSummaryResponse(
 	String endAt,
 	BigDecimal lat,
 	BigDecimal lng,
-	String source
+	String source,
+	String posterUrl,
+	String area,
+	String genre,
+	String timeGuidance,
+	long openRoomCount
 ) {
 
-	public static ConcertSummaryResponse from(Concert concert) {
+	public static ConcertSummaryResponse from(Concert concert, long openRoomCount) {
 		return new ConcertSummaryResponse(
 			concert.getId(),
 			concert.getTitle(),
@@ -23,7 +28,12 @@ public record ConcertSummaryResponse(
 			DateTimeResponseFormatter.format(concert.getEndAt()),
 			concert.getLat(),
 			concert.getLng(),
-			concert.getSource()
+			concert.getSource(),
+			concert.getPosterUrl(),
+			concert.getArea(),
+			concert.getGenre(),
+			concert.getTimeGuidance(),
+			openRoomCount
 		);
 	}
 }

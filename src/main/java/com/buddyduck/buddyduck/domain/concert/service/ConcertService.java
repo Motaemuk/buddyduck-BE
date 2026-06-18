@@ -11,14 +11,19 @@ import com.buddyduck.buddyduck.domain.concert.enums.InterestTag;
 import com.buddyduck.buddyduck.domain.concert.kopis.KopisConcertSyncService;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertInterestTagRepository;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertRepository;
+import com.buddyduck.buddyduck.domain.room.enums.RoomStatus;
+import com.buddyduck.buddyduck.domain.room.repository.RoomRepository;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -37,6 +42,7 @@ public class ConcertService {
 	private final ConcertInterestTagRepository concertInterestTagRepository;
 	private final UserRepository userRepository;
 	private final KopisConcertSyncService kopisConcertSyncService;
+	private final RoomRepository roomRepository;
 
 	public ConcertListResponse getConcerts(
 		String keyword,
@@ -60,9 +66,11 @@ public class ConcertService {
 			normalize(region),
 			pageable
 		);
-		List<ConcertSummaryResponse> items = concertPage.getContent()
+		List<Concert> concerts = concertPage.getContent();
+		Map<Long, Long> openRoomCounts = openRoomCounts(concerts);
+		List<ConcertSummaryResponse> items = concerts
 			.stream()
-			.map(ConcertSummaryResponse::from)
+			.map(concert -> ConcertSummaryResponse.from(concert, openRoomCounts.getOrDefault(concert.getId(), 0L)))
 			.toList();
 
 		return new ConcertListResponse(items, concertPage.getNumber(), concertPage.getSize(), concertPage.hasNext());
@@ -71,7 +79,8 @@ public class ConcertService {
 	@Transactional(readOnly = true)
 	public ConcertDetailResponse getConcert(Long concertId) {
 		Concert concert = getConcertOrThrow(concertId);
-		return ConcertDetailResponse.from(concert);
+		long openRoomCount = roomRepository.countByConcertIdAndStatus(concertId, RoomStatus.OPEN);
+		return ConcertDetailResponse.from(concert, openRoomCount);
 	}
 
 	@Transactional(readOnly = true)
@@ -132,5 +141,23 @@ public class ConcertService {
 
 	private LocalDateTime endExclusive(LocalDate date) {
 		return date == null ? null : date.plusDays(1).atStartOfDay();
+	}
+
+	private Map<Long, Long> openRoomCounts(List<Concert> concerts) {
+		if (concerts.isEmpty()) {
+			return Collections.emptyMap();
+		}
+
+		List<Long> concertIds = concerts.stream()
+			.map(Concert::getId)
+			.toList();
+
+		return roomRepository.countRoomsByConcertIdsAndStatus(concertIds, RoomStatus.OPEN)
+			.stream()
+			.collect(Collectors.toMap(
+				RoomRepository.ConcertOpenRoomCount::getConcertId,
+				RoomRepository.ConcertOpenRoomCount::getOpenRoomCount,
+				(left, right) -> left
+			));
 	}
 }

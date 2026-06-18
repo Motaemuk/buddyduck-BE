@@ -10,6 +10,10 @@ public record KopisConcertCandidate(
 	LocalDateTime startAt,
 	LocalDateTime endAt,
 	BigDecimal lat,
-	BigDecimal lng
+	BigDecimal lng,
+	String posterUrl,
+	String area,
+	String genre,
+	String timeGuidance
 ) {
 }

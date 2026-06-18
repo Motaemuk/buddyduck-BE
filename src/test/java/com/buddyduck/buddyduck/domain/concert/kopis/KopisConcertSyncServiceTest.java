@@ -2,6 +2,7 @@ package com.buddyduck.buddyduck.domain.concert.kopis;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import com.buddyduck.buddyduck.domain.concert.entity.Concert;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertRepository;
@@ -90,9 +91,36 @@ class KopisConcertSyncServiceTest {
 		assertThat(concert.getPosterUrl()).isEqualTo("https://www.kopis.or.kr/upload/pfmPoster/PF178134.gif");
 	}
 
+	@Test
+	void 초기_적재는_빈_페이지가_나올_때까지_공연을_upsert한다() {
+		LocalDate from = LocalDate.of(2026, 6, 18);
+		LocalDate to = LocalDate.of(2026, 7, 18);
+		given(kopisConcertClient.fetchConcerts(from, to, 0, 100, null))
+			.willReturn(List.of(candidate("PF100001", "FIRST LIVE")));
+		given(kopisConcertClient.fetchConcerts(from, to, 1, 100, null))
+			.willReturn(List.of(candidate("PF100002", "SECOND LIVE")));
+		given(kopisConcertClient.fetchConcerts(from, to, 2, 100, null))
+			.willReturn(List.of());
+
+		KopisConcertImportResult result = kopisConcertSyncService.importConcerts(from, to);
+
+		assertThat(result.pages()).isEqualTo(2);
+		assertThat(result.fetchedCount()).isEqualTo(2);
+		assertThat(result.syncedCount()).isEqualTo(2);
+		assertThat(concertRepository.findBySourceAndExternalId("KOPIS", "PF100001")).isPresent();
+		assertThat(concertRepository.findBySourceAndExternalId("KOPIS", "PF100002")).isPresent();
+		then(kopisConcertClient).should().fetchConcerts(from, to, 0, 100, null);
+		then(kopisConcertClient).should().fetchConcerts(from, to, 1, 100, null);
+		then(kopisConcertClient).should().fetchConcerts(from, to, 2, 100, null);
+	}
+
 	private KopisConcertCandidate candidate(String title) {
+		return candidate("PF178134", title);
+	}
+
+	private KopisConcertCandidate candidate(String externalId, String title) {
 		return new KopisConcertCandidate(
-			"PF178134",
+			externalId,
 			title,
 			"KSPO Dome",
 			LocalDateTime.of(2026, 6, 20, 0, 0),

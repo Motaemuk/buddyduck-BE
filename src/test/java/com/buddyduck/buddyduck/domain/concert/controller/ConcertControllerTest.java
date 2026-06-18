@@ -6,7 +6,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.buddyduck.buddyduck.domain.concert.kopis.KopisConcertClient;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
@@ -22,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -45,6 +48,9 @@ class ConcertControllerTest {
 
 	@Autowired
 	private JwtTokenProvider jwtTokenProvider;
+
+	@MockBean
+	private KopisConcertClient kopisConcertClient;
 
 	@BeforeEach
 	void setUp() {
@@ -79,6 +85,8 @@ class ConcertControllerTest {
 			.andExpect(jsonPath("$.result.page").value(0))
 			.andExpect(jsonPath("$.result.size").value(20))
 			.andExpect(jsonPath("$.result.hasNext").value(false));
+
+		verifyNoInteractions(kopisConcertClient);
 	}
 
 	@Test

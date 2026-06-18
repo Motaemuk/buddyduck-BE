@@ -56,7 +56,7 @@ public class ConcertService {
 			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 		}
 
-		kopisConcertSyncService.syncConcerts(keyword, from, to, page, size);
+		kopisConcertSyncService.syncConcertsForQuery(keyword, from, to, page, size);
 
 		Pageable pageable = PageRequest.of(page, Math.min(size, MAX_PAGE_SIZE));
 		Page<Concert> concertPage = concertRepository.search(

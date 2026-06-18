@@ -26,6 +26,13 @@ public class KopisConcertSyncService {
 	private final KopisProperties kopisProperties;
 	private final ConcertRepository concertRepository;
 
+	public int syncConcertsForQuery(String keyword, LocalDate from, LocalDate to, int page, int size) {
+		if (!kopisProperties.isSyncOnQuery()) {
+			return 0;
+		}
+		return syncConcerts(keyword, from, to, page, size);
+	}
+
 	public int syncConcerts(String keyword, LocalDate from, LocalDate to, int page, int size) {
 		if (!kopisConcertClient.isEnabled()) {
 			return 0;
@@ -56,6 +63,47 @@ public class KopisConcertSyncService {
 		}
 	}
 
+	public KopisConcertImportResult importConcerts(LocalDate from, LocalDate to) {
+		LocalDate startDate = from == null ? LocalDate.now(SERVICE_ZONE) : from;
+		LocalDate endDate = normalizeEndDate(startDate, to);
+		int rows = normalizeInitialImportRows();
+		int maxPages = Math.max(1, kopisProperties.getInitialImport().getMaxPages());
+
+		if (!kopisConcertClient.isEnabled()) {
+			return new KopisConcertImportResult(startDate, endDate, 0, 0, 0);
+		}
+
+		int fetchedCount = 0;
+		int syncedCount = 0;
+		int pages = 0;
+		for (int page = 0; page < maxPages; page++) {
+			List<KopisConcertCandidate> candidates = fetchImportPage(startDate, endDate, page, rows);
+			if (candidates.isEmpty()) {
+				break;
+			}
+			pages++;
+			fetchedCount += candidates.size();
+			syncedCount += upsert(candidates);
+		}
+
+		return new KopisConcertImportResult(startDate, endDate, pages, fetchedCount, syncedCount);
+	}
+
+	private List<KopisConcertCandidate> fetchImportPage(LocalDate startDate, LocalDate endDate, int page, int rows) {
+		try {
+			return kopisConcertClient.fetchConcerts(startDate, endDate, page, rows, null);
+		} catch (IllegalArgumentException | RestClientException exception) {
+			log.warn(
+				"Failed to import KOPIS concerts. from={}, to={}, page={}",
+				startDate,
+				endDate,
+				page,
+				exception
+			);
+			return List.of();
+		}
+	}
+
 	private LocalDate normalizeEndDate(LocalDate startDate, LocalDate requestedEndDate) {
 		if (requestedEndDate == null || requestedEndDate.isBefore(startDate)) {
 			return startDate.plusDays(KOPIS_MAX_RANGE_DAYS);
@@ -70,6 +118,10 @@ public class KopisConcertSyncService {
 	private int normalizeRows(int size) {
 		int configuredLimit = Math.max(1, Math.min(kopisProperties.getMaxSyncRows(), KOPIS_MAX_ROWS));
 		return Math.max(1, Math.min(size, configuredLimit));
+	}
+
+	private int normalizeInitialImportRows() {
+		return Math.max(1, Math.min(kopisProperties.getInitialImport().getRows(), KOPIS_MAX_ROWS));
 	}
 
 	private int upsert(List<KopisConcertCandidate> candidates) {

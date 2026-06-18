@@ -39,7 +39,7 @@ kakao:
 
 kopis:
   service-key: ${KOPIS_SERVICE_KEY:}
-  base-uri: https://www.kopis.or.kr/openApi/restful
+  base-uri: http://www.kopis.or.kr/openApi/restful
   max-sync-rows: ${KOPIS_MAX_SYNC_ROWS:10}
   sync-on-query: ${KOPIS_SYNC_ON_QUERY:false}
   initial-import:

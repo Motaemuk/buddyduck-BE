@@ -161,9 +161,9 @@ class KopisRestClientTest {
 	}
 
 	@Test
-	void KOPIS_기본_base_uri는_https를_사용한다() {
+	void KOPIS_기본_base_uri는_공식_HTTP_endpoint를_사용한다() {
 		KopisProperties properties = new KopisProperties();
 
-		assertThat(properties.getBaseUri()).startsWith("https://");
+		assertThat(properties.getBaseUri()).isEqualTo("http://www.kopis.or.kr/openApi/restful");
 	}
 }

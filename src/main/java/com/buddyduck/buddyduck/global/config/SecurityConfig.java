@@ -59,7 +59,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.POST, "/api/dev/seed/concerts").permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/dev/seed/demo-room").permitAll()
 				.requestMatchers("/error").permitAll()
-				.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+				.requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**", "/v3/api-docs.*").permitAll()
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

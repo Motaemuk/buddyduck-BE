@@ -60,6 +60,9 @@ class SecurityConfigTest {
 			.andExpect(jsonPath("$.openapi").exists())
 			.andExpect(jsonPath("$.info.title").value("Buddyduck API"))
 			.andExpect(jsonPath("$.info.version").value("v1"));
+
+		mockMvc.perform(get("/v3/api-docs.yaml"))
+			.andExpect(status().isOk());
 	}
 
 	@Test

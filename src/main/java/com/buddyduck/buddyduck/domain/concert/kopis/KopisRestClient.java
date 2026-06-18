@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.LongConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ public class KopisRestClient implements KopisConcertClient {
 	private final RestClient restClient;
 	private final KopisProperties properties;
 	private final KopisXmlParser parser;
+	private final LongConsumer requestDelay;
 
 	@Autowired
 	public KopisRestClient(RestClient.Builder restClientBuilder, KopisProperties properties, KopisXmlParser parser) {
@@ -42,14 +44,25 @@ public class KopisRestClient implements KopisConcertClient {
 				.requestFactory(requestFactory())
 				.build(),
 			properties,
-			parser
+			parser,
+			KopisRestClient::sleep
 		);
 	}
 
 	KopisRestClient(RestClient restClient, KopisProperties properties, KopisXmlParser parser) {
+		this(restClient, properties, parser, KopisRestClient::sleep);
+	}
+
+	KopisRestClient(
+		RestClient restClient,
+		KopisProperties properties,
+		KopisXmlParser parser,
+		LongConsumer requestDelay
+	) {
 		this.restClient = restClient;
 		this.properties = properties;
 		this.parser = parser;
+		this.requestDelay = requestDelay;
 	}
 
 	@Override
@@ -170,10 +183,27 @@ public class KopisRestClient implements KopisConcertClient {
 	}
 
 	private String get(URI uri) {
+		delayRequest();
 		return restClient.get()
 			.uri(uri)
 			.retrieve()
 			.body(String.class);
+	}
+
+	private void delayRequest() {
+		long delayMillis = properties.getRequestDelayMillis();
+		if (delayMillis > 0) {
+			requestDelay.accept(delayMillis);
+		}
+	}
+
+	private static void sleep(long delayMillis) {
+		try {
+			Thread.sleep(delayMillis);
+		} catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			throw new RestClientException("Interrupted while waiting before KOPIS request", exception);
+		}
 	}
 
 	private static SimpleClientHttpRequestFactory requestFactory() {

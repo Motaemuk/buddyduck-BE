@@ -10,6 +10,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
@@ -165,5 +166,62 @@ class KopisRestClientTest {
 		KopisProperties properties = new KopisProperties();
 
 		assertThat(properties.getBaseUri()).isEqualTo("http://www.kopis.or.kr/openApi/restful");
+	}
+
+	@Test
+	void KOPIS_요청마다_설정된_delay를_적용한다() {
+		RestClient.Builder builder = RestClient.builder();
+		MockRestServiceServer delayServer = MockRestServiceServer.bindTo(builder).build();
+		AtomicLong delayedMillis = new AtomicLong();
+
+		KopisProperties properties = new KopisProperties();
+		properties.setServiceKey("test-service-key");
+		properties.setBaseUri("https://kopis.test/openApi/restful");
+		properties.setRequestDelayMillis(7);
+
+		KopisRestClient delayedClient = new KopisRestClient(
+			builder.build(),
+			properties,
+			new KopisXmlParser(),
+			delayedMillis::addAndGet
+		);
+
+		delayServer.expect(requestTo(containsString("/openApi/restful/pblprfr?")))
+			.andRespond(withSuccess("""
+				<dbs>
+				  <db>
+				    <mt20id>PF178134</mt20id>
+				    <prfnm>AURORA LIVE</prfnm>
+				  </db>
+				</dbs>
+				""", XML_UTF8));
+		delayServer.expect(requestTo(containsString("/openApi/restful/pblprfr/PF178134?")))
+			.andRespond(withSuccess("""
+				<dbs>
+				  <db>
+				    <mt20id>PF178134</mt20id>
+				    <prfnm>AURORA LIVE</prfnm>
+				    <mt10id>FC001247</mt10id>
+				    <fcltynm>KSPO Dome</fcltynm>
+				    <prfpdfrom>2026.06.20</prfpdfrom>
+				    <prfpdto>2026.06.20</prfpdto>
+				  </db>
+				</dbs>
+				""", XML_UTF8));
+		delayServer.expect(requestTo(containsString("/openApi/restful/prfplc/FC001247?")))
+			.andRespond(withSuccess("""
+				<dbs>
+				  <db>
+				    <fcltynm>올림픽공원</fcltynm>
+				    <la>37.52112</la>
+				    <lo>127.1283636</lo>
+				  </db>
+				</dbs>
+				""", XML_UTF8));
+
+		delayedClient.fetchConcerts(LocalDate.of(2026, 6, 1), LocalDate.of(2026, 6, 30), 0, 10, null);
+
+		assertThat(delayedMillis).hasValue(21);
+		delayServer.verify();
 	}
 }

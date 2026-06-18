@@ -68,6 +68,7 @@ public class KopisConcertSyncService {
 		LocalDate endDate = normalizeEndDate(startDate, to);
 		int rows = normalizeInitialImportRows();
 		int maxPages = Math.max(1, kopisProperties.getInitialImport().getMaxPages());
+		int emptyPageTolerance = normalizeEmptyPageTolerance();
 
 		if (!kopisConcertClient.isEnabled()) {
 			return new KopisConcertImportResult(startDate, endDate, 0, 0, 0);
@@ -76,11 +77,23 @@ public class KopisConcertSyncService {
 		int fetchedCount = 0;
 		int syncedCount = 0;
 		int pages = 0;
+		int emptyPages = 0;
 		for (int page = 0; page < maxPages; page++) {
-			List<KopisConcertCandidate> candidates = fetchImportPage(startDate, endDate, page, rows);
-			if (candidates.isEmpty()) {
+			ImportPageResult pageResult = fetchImportPage(startDate, endDate, page, rows);
+			if (pageResult.failure()) {
 				break;
 			}
+
+			List<KopisConcertCandidate> candidates = pageResult.candidates();
+			if (candidates.isEmpty()) {
+				emptyPages++;
+				if (emptyPages >= emptyPageTolerance) {
+					break;
+				}
+				continue;
+			}
+
+			emptyPages = 0;
 			pages++;
 			fetchedCount += candidates.size();
 			syncedCount += upsert(candidates);
@@ -89,9 +102,9 @@ public class KopisConcertSyncService {
 		return new KopisConcertImportResult(startDate, endDate, pages, fetchedCount, syncedCount);
 	}
 
-	private List<KopisConcertCandidate> fetchImportPage(LocalDate startDate, LocalDate endDate, int page, int rows) {
+	private ImportPageResult fetchImportPage(LocalDate startDate, LocalDate endDate, int page, int rows) {
 		try {
-			return kopisConcertClient.fetchConcerts(startDate, endDate, page, rows, null);
+			return ImportPageResult.succeeded(kopisConcertClient.fetchConcerts(startDate, endDate, page, rows, null));
 		} catch (IllegalArgumentException | RestClientException exception) {
 			log.warn(
 				"Failed to import KOPIS concerts. from={}, to={}, page={}",
@@ -100,7 +113,7 @@ public class KopisConcertSyncService {
 				page,
 				exception
 			);
-			return List.of();
+			return ImportPageResult.failedResult();
 		}
 	}
 
@@ -122,6 +135,10 @@ public class KopisConcertSyncService {
 
 	private int normalizeInitialImportRows() {
 		return Math.max(1, Math.min(kopisProperties.getInitialImport().getRows(), KOPIS_MAX_ROWS));
+	}
+
+	private int normalizeEmptyPageTolerance() {
+		return Math.max(1, kopisProperties.getInitialImport().getEmptyPageTolerance());
 	}
 
 	private int upsert(List<KopisConcertCandidate> candidates) {
@@ -176,5 +193,16 @@ public class KopisConcertSyncService {
 			candidate.lng(),
 			SOURCE
 		);
+	}
+
+	private record ImportPageResult(List<KopisConcertCandidate> candidates, boolean failure) {
+
+		private static ImportPageResult succeeded(List<KopisConcertCandidate> candidates) {
+			return new ImportPageResult(candidates, false);
+		}
+
+		private static ImportPageResult failedResult() {
+			return new ImportPageResult(List.of(), true);
+		}
 	}
 }

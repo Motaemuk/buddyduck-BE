@@ -16,7 +16,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
-@SpringBootTest(properties = "kopis.max-sync-rows=5")
+@SpringBootTest(properties = {
+	"kopis.max-sync-rows=5",
+	"kopis.initial-import.rows=100",
+	"kopis.initial-import.empty-page-tolerance=2"
+})
 class KopisConcertSyncServiceTest {
 
 	@Autowired
@@ -92,14 +96,18 @@ class KopisConcertSyncServiceTest {
 	}
 
 	@Test
-	void 초기_적재는_빈_페이지가_나올_때까지_공연을_upsert한다() {
+	void 초기_적재는_빈_후보_페이지를_허용_범위만큼_건너뛴다() {
 		LocalDate from = LocalDate.of(2026, 6, 18);
 		LocalDate to = LocalDate.of(2026, 7, 18);
 		given(kopisConcertClient.fetchConcerts(from, to, 0, 100, null))
 			.willReturn(List.of(candidate("PF100001", "FIRST LIVE")));
 		given(kopisConcertClient.fetchConcerts(from, to, 1, 100, null))
-			.willReturn(List.of(candidate("PF100002", "SECOND LIVE")));
+			.willReturn(List.of());
 		given(kopisConcertClient.fetchConcerts(from, to, 2, 100, null))
+			.willReturn(List.of(candidate("PF100002", "SECOND LIVE")));
+		given(kopisConcertClient.fetchConcerts(from, to, 3, 100, null))
+			.willReturn(List.of());
+		given(kopisConcertClient.fetchConcerts(from, to, 4, 100, null))
 			.willReturn(List.of());
 
 		KopisConcertImportResult result = kopisConcertSyncService.importConcerts(from, to);
@@ -112,6 +120,8 @@ class KopisConcertSyncServiceTest {
 		then(kopisConcertClient).should().fetchConcerts(from, to, 0, 100, null);
 		then(kopisConcertClient).should().fetchConcerts(from, to, 1, 100, null);
 		then(kopisConcertClient).should().fetchConcerts(from, to, 2, 100, null);
+		then(kopisConcertClient).should().fetchConcerts(from, to, 3, 100, null);
+		then(kopisConcertClient).should().fetchConcerts(from, to, 4, 100, null);
 	}
 
 	private KopisConcertCandidate candidate(String title) {

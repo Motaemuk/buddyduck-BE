@@ -142,12 +142,14 @@ KAKAO_LOCAL_REST_API_KEY=<kakao-rest-api-key>
 KOPIS_SERVICE_KEY=<kopis-service-key>
 KOPIS_SYNC_ON_QUERY=false
 KOPIS_INITIAL_IMPORT_DAYS=30
-KOPIS_INITIAL_IMPORT_ROWS=100
+KOPIS_INITIAL_IMPORT_ROWS=20
 KOPIS_INITIAL_IMPORT_MAX_PAGES=100
+KOPIS_INITIAL_IMPORT_EMPTY_PAGE_TOLERANCE=3
 ```
 
 Vercel preview 도메인에서 API를 직접 호출해야 하면 `CORS_ALLOWED_ORIGINS`에 해당 preview origin을 쉼표로 추가한다.
 KOPIS 기본 endpoint는 공식 OpenAPI 개발가이드의 `http://www.kopis.or.kr/openApi/restful`을 따른다. `https://www.kopis.or.kr`는 redirect 경로를 타며, 초기 적재 중 KOPIS에서 `400 Request Blocked`가 발생할 수 있다.
+KOPIS 초기 적재는 공연 목록 1건마다 상세/시설 조회를 추가로 호출하므로 `KOPIS_INITIAL_IMPORT_ROWS`는 20 정도로 작게 유지한다.
 `KOPIS_INITIAL_IMPORT_ENABLED=true`는 일반 서버 실행용 `.env.prod`에 계속 넣지 않는다. 초기 적재를 1회 실행할 때만 command 환경변수로 넘긴다.
 
 권한을 제한한다.
@@ -195,6 +197,7 @@ docker compose -f compose.prod.yml run --rm \
 
 실행 로그에서 `KOPIS initial import finished`와 `fetchedCount`, `syncedCount`를 확인한다. 이후 일반 서버는 그대로 DB cache를 조회한다.
 `fetchedCount`는 KOPIS 목록 원본 건수가 아니라 상세/시설 조회까지 통과해 DB upsert 후보가 된 건수다.
+일부 KOPIS 목록 페이지는 상세/시설 좌표가 부족해 후보가 0건일 수 있으므로, 초기 적재는 빈 후보 페이지를 `KOPIS_INITIAL_IMPORT_EMPTY_PAGE_TOLERANCE` 횟수만큼 건너뛴 뒤 종료한다.
 
 ## 7. 배포 중 자주 보는 문제
 

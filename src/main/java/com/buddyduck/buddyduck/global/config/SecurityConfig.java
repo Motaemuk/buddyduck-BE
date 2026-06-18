@@ -4,6 +4,7 @@ import com.buddyduck.buddyduck.global.apiPayload.ApiResponse;
 import com.buddyduck.buddyduck.global.apiPayload.code.BaseErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.security.JwtAuthenticationFilter;
+import com.buddyduck.buddyduck.global.security.ProfileCompletionFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -33,6 +34,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 public class SecurityConfig {
 
 	private final JwtAuthenticationFilter jwtAuthenticationFilter;
+	private final ProfileCompletionFilter profileCompletionFilter;
 	private final ObjectMapper objectMapper;
 
 	@Bean
@@ -61,6 +63,7 @@ public class SecurityConfig {
 				.anyRequest().authenticated()
 			)
 			.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+			.addFilterAfter(profileCompletionFilter, JwtAuthenticationFilter.class)
 			.build();
 	}
 

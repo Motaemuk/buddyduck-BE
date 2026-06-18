@@ -7,9 +7,9 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum AuthErrorCode implements BaseErrorCode {
 	REQUIRED_PROFILE_INFO(
-		HttpStatus.BAD_REQUEST,
+		HttpStatus.FORBIDDEN,
 		"AUTH_REQUIRED_PROFILE_INFO",
-		"성별/연령대 동의가 필요합니다."
+		"추가 프로필 입력이 필요합니다."
 	),
 	INVALID_REDIRECT_URI(
 		HttpStatus.BAD_REQUEST,

@@ -63,6 +63,21 @@ class SecurityConfigTest {
 	}
 
 	@Test
+	void 프로필이_완료되지_않아도_OpenAPI_문서는_호출할_수_있다() throws Exception {
+		User user = userRepository.save(User.createKakao("kakao-openapi", "openapi_duck", null, null));
+		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
+
+		mockMvc.perform(get("/v3/api-docs")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.openapi").exists());
+
+		mockMvc.perform(get("/v3/api-docs.yaml")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk());
+	}
+
+	@Test
 	void Swagger_UI는_인증_없이_호출할_수_있다() throws Exception {
 		mockMvc.perform(get("/swagger-ui/index.html"))
 			.andExpect(status().isOk());

@@ -43,7 +43,7 @@ public class ProfileCompletionFilter extends OncePerRequestFilter {
 			|| isPath(method, path, HttpMethod.POST, "/api/dev/seed/demo-room")
 			|| path.equals("/swagger-ui.html")
 			|| path.startsWith("/swagger-ui/")
-			|| path.startsWith("/v3/api-docs/")
+			|| isOpenApiPath(path)
 			|| path.equals("/error");
 	}
 
@@ -89,5 +89,11 @@ public class ProfileCompletionFilter extends OncePerRequestFilter {
 
 		String concertId = path.substring(CONCERT_DETAIL_PREFIX.length());
 		return !concertId.isBlank() && !concertId.contains("/");
+	}
+
+	private boolean isOpenApiPath(String path) {
+		return path.equals("/v3/api-docs")
+			|| path.startsWith("/v3/api-docs/")
+			|| path.startsWith("/v3/api-docs.");
 	}
 }

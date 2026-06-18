@@ -37,6 +37,17 @@ kakao:
     keyword-search-uri: https://dapi.kakao.com/v2/local/search/keyword.json
     address-search-uri: https://dapi.kakao.com/v2/local/search/address.json
 
+kopis:
+  service-key: ${KOPIS_SERVICE_KEY:}
+  base-uri: https://www.kopis.or.kr/openApi/restful
+  max-sync-rows: ${KOPIS_MAX_SYNC_ROWS:10}
+  sync-on-query: ${KOPIS_SYNC_ON_QUERY:false}
+  initial-import:
+    enabled: ${KOPIS_INITIAL_IMPORT_ENABLED:false}
+    days: ${KOPIS_INITIAL_IMPORT_DAYS:30}
+    rows: ${KOPIS_INITIAL_IMPORT_ROWS:100}
+    max-pages: ${KOPIS_INITIAL_IMPORT_MAX_PAGES:100}
+
 ---
 
 spring:

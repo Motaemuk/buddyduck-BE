@@ -91,6 +91,9 @@ KAKAO_CLIENT_SECRET=
 KAKAO_ALLOWED_REDIRECT_URIS=http://localhost:5173/oauth/kakao/callback
 # Optional. If omitted, Kakao Local uses KAKAO_CLIENT_ID.
 KAKAO_LOCAL_REST_API_KEY=replace-with-kakao-rest-api-key
+KOPIS_SERVICE_KEY=
+KOPIS_MAX_SYNC_ROWS=10
+KOPIS_SYNC_ON_QUERY=false
 ```
 
 Kakao Developers setup:
@@ -151,6 +154,40 @@ Required request header used by the backend:
 ```text
 Authorization: KakaoAK <REST_API_KEY>
 ```
+
+## KOPIS Concert Sync
+
+`GET /api/concerts` is DB-backed by default. For the MVP demo, run a one-time KOPIS import first, then let the home/search screen query the cached `concerts` rows.
+
+Local or server environment values:
+
+```properties
+KOPIS_SERVICE_KEY=<kopis-service-key>
+KOPIS_MAX_SYNC_ROWS=10
+KOPIS_SYNC_ON_QUERY=false
+KOPIS_INITIAL_IMPORT_DAYS=30
+KOPIS_INITIAL_IMPORT_ROWS=100
+KOPIS_INITIAL_IMPORT_MAX_PAGES=100
+```
+
+One-time import command:
+
+```bash
+KOPIS_INITIAL_IMPORT_ENABLED=true \
+SPRING_MAIN_WEB_APPLICATION_TYPE=none \
+JAVA_HOME=$(/usr/libexec/java_home -v 17) \
+./gradlew bootRun
+```
+
+On EC2 Docker Compose, run the same app image as a one-off container with `KOPIS_INITIAL_IMPORT_ENABLED=true` and `SPRING_MAIN_WEB_APPLICATION_TYPE=none`. Do not keep `KOPIS_INITIAL_IMPORT_ENABLED=true` in the normal server `.env.prod`.
+
+Notes:
+
+- Do not commit the real KOPIS key.
+- KOPIS date range requests are capped to 31 days. With the default `KOPIS_INITIAL_IMPORT_DAYS=30`, the import covers today through today plus 30 days.
+- KOPIS concert detail can include `poster`, `area`, `genrenm`, and `dtguidance`. Synced rows expose them as `posterUrl`, `area`, `genre`, and `timeGuidance`.
+- `dtguidance` is a free-form text guide. If it contains exactly one distinct `HH:mm`, the sync sets `startAt` to that time on the start date. If it has multiple times or no time, `startAt` falls back to `00:00`. `endAt` is stored as the end date at `23:59:59`.
+- `openRoomCount` is calculated from current `OPEN` rooms, not from KOPIS.
 
 ## Test Profile
 

@@ -1,0 +1,4 @@
+ALTER TABLE concerts ADD COLUMN poster_url VARCHAR(500);
+ALTER TABLE concerts ADD COLUMN area VARCHAR(100);
+ALTER TABLE concerts ADD COLUMN genre VARCHAR(50);
+ALTER TABLE concerts ADD COLUMN time_guidance VARCHAR(500);

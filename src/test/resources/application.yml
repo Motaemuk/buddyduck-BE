@@ -17,3 +17,6 @@ kakao:
     user-info-uri: https://kapi.kakao.com/v2/user/me
   local:
     rest-api-key: ""
+
+kopis:
+  service-key: ""

@@ -45,8 +45,9 @@ kopis:
   initial-import:
     enabled: ${KOPIS_INITIAL_IMPORT_ENABLED:false}
     days: ${KOPIS_INITIAL_IMPORT_DAYS:30}
-    rows: ${KOPIS_INITIAL_IMPORT_ROWS:100}
+    rows: ${KOPIS_INITIAL_IMPORT_ROWS:20}
     max-pages: ${KOPIS_INITIAL_IMPORT_MAX_PAGES:100}
+    empty-page-tolerance: ${KOPIS_INITIAL_IMPORT_EMPTY_PAGE_TOLERANCE:3}
 
 ---
 

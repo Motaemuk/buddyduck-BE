@@ -27,6 +27,7 @@
 - `GET /api/concerts`는 기본적으로 DB cache만 조회합니다. KOPIS는 FE 요청마다 호출하지 않고, 운영 시작 전/배포 직후 1회 초기 적재 job으로 `concerts` 테이블에 저장합니다.
 - 초기 적재는 KOPIS 공연 목록/상세/시설 상세를 조회해 `source=KOPIS`로 upsert합니다. 기본 범위는 오늘부터 30일 뒤까지이며, KOPIS API 특성상 실제로는 31일 범위로 이해하면 됩니다.
 - KOPIS endpoint는 공식 OpenAPI 개발가이드의 `http://www.kopis.or.kr/openApi/restful`을 사용합니다. `https://www.kopis.or.kr`는 redirect 경로를 타며, 초기 적재 중 `400 Request Blocked`가 발생할 수 있어 기본값으로 쓰지 않습니다.
+- KOPIS 초기 적재는 목록 1건마다 상세/시설 조회가 추가로 붙으므로 기본 `rows`를 20으로 둡니다. 상세/시설 좌표가 부족해 후보가 0건인 페이지는 기본 3번까지 건너뛴 뒤 종료합니다.
 - KOPIS 키가 없거나 초기 적재를 실행하지 않으면 기존 DB/seed 데이터만 반환합니다. 그래서 발표 전에는 초기 적재 결과를 확인하고, 필요하면 핵심 공연을 DB에서 보정하는 것이 안전합니다.
 - KOPIS 상세의 `poster`, `area`, `genrenm`, `dtguidance`는 각각 `posterUrl`, `area`, `genre`, `timeGuidance`로 저장/응답합니다. 포스터는 KOPIS 데이터에 없을 수 있어 nullable입니다.
 - KOPIS의 `dtguidance`는 자유 텍스트라 항상 하나의 시작 시간으로 확정할 수 없습니다. `HH:mm` 시간이 정확히 1개만 있으면 `startAt`에 반영하고, 시간이 여러 개이거나 없으면 시작일 `00:00`으로 저장합니다. `endAt`은 종료일 `23:59:59`입니다.

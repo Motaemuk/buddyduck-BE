@@ -30,7 +30,8 @@ public class KopisProperties {
 		private boolean enabled = false;
 		private LocalDate from;
 		private int days = 30;
-		private int rows = 100;
+		private int rows = 20;
 		private int maxPages = 100;
+		private int emptyPageTolerance = 3;
 	}
 }

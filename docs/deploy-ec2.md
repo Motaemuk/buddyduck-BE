@@ -138,9 +138,16 @@ CORS_ALLOWED_ORIGINS=https://boostad.site,https://www.boostad.site
 KAKAO_CLIENT_ID=<kakao-rest-api-key>
 KAKAO_CLIENT_SECRET=
 KAKAO_LOCAL_REST_API_KEY=<kakao-rest-api-key>
+
+KOPIS_SERVICE_KEY=<kopis-service-key>
+KOPIS_SYNC_ON_QUERY=false
+KOPIS_INITIAL_IMPORT_DAYS=30
+KOPIS_INITIAL_IMPORT_ROWS=100
+KOPIS_INITIAL_IMPORT_MAX_PAGES=100
 ```
 
 Vercel preview 도메인에서 API를 직접 호출해야 하면 `CORS_ALLOWED_ORIGINS`에 해당 preview origin을 쉼표로 추가한다.
+`KOPIS_INITIAL_IMPORT_ENABLED=true`는 일반 서버 실행용 `.env.prod`에 계속 넣지 않는다. 초기 적재를 1회 실행할 때만 command 환경변수로 넘긴다.
 
 권한을 제한한다.
 
@@ -175,6 +182,17 @@ DNS와 인증서 발급 후 외부에서 확인한다.
 ```bash
 curl https://api.boostad.site/api/health
 ```
+
+KOPIS 공연 cache를 처음 채울 때는 일반 서버 컨테이너와 분리해서 1회 실행한다.
+
+```bash
+docker compose -f compose.prod.yml run --rm \
+  -e KOPIS_INITIAL_IMPORT_ENABLED=true \
+  -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
+  app
+```
+
+실행 로그에서 `KOPIS initial import finished`와 `fetchedCount`, `syncedCount`를 확인한다. 이후 일반 서버는 그대로 DB cache를 조회한다.
 
 ## 7. 배포 중 자주 보는 문제
 

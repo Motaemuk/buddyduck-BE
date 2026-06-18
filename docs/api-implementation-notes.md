@@ -24,8 +24,9 @@
 ### Concert / Room / Join
 
 - `GET /api/concerts`, `GET /api/concerts/{concertId}`는 인증 없이 호출할 수 있습니다.
-- `KOPIS_SERVICE_KEY`가 설정되어 있으면 `GET /api/concerts` 호출 시 KOPIS 공연 목록/상세/시설 상세를 조회해 `concerts` 테이블에 `source=KOPIS`로 upsert한 뒤 DB 목록을 반환합니다.
-- KOPIS 키가 없거나 외부 호출이 실패하면 기존 DB/seed 데이터만 반환합니다. 그래서 발표용 핵심 데이터는 seed 또는 수동 DB 보정으로 유지하는 것이 안전합니다.
+- `GET /api/concerts`는 기본적으로 DB cache만 조회합니다. KOPIS는 FE 요청마다 호출하지 않고, 운영 시작 전/배포 직후 1회 초기 적재 job으로 `concerts` 테이블에 저장합니다.
+- 초기 적재는 KOPIS 공연 목록/상세/시설 상세를 조회해 `source=KOPIS`로 upsert합니다. 기본 범위는 오늘부터 30일 뒤까지이며, KOPIS API 특성상 실제로는 31일 범위로 이해하면 됩니다.
+- KOPIS 키가 없거나 초기 적재를 실행하지 않으면 기존 DB/seed 데이터만 반환합니다. 그래서 발표 전에는 초기 적재 결과를 확인하고, 필요하면 핵심 공연을 DB에서 보정하는 것이 안전합니다.
 - KOPIS 상세의 `poster`, `area`, `genrenm`, `dtguidance`는 각각 `posterUrl`, `area`, `genre`, `timeGuidance`로 저장/응답합니다. 포스터는 KOPIS 데이터에 없을 수 있어 nullable입니다.
 - KOPIS의 `dtguidance`는 자유 텍스트라 항상 하나의 시작 시간으로 확정할 수 없습니다. `HH:mm` 시간이 정확히 1개만 있으면 `startAt`에 반영하고, 시간이 여러 개이거나 없으면 시작일 `00:00`으로 저장합니다. `endAt`은 종료일 `23:59:59`입니다.
 - 공연 목록/상세 응답의 `openRoomCount`는 KOPIS 값이 아니라 현재 DB에 있는 `OPEN` 방 개수입니다.
@@ -50,7 +51,7 @@
 ## 구현된 범위
 
 - 공연 목록/상세 조회 API를 추가했습니다.
-- KOPIS 공연 목록/상세/시설 상세 조회 기반의 공연 DB cache/upsert를 추가했습니다.
+- KOPIS 공연 목록/상세/시설 상세 조회 기반의 공연 초기 적재 job과 DB cache/upsert를 추가했습니다.
 - KOPIS 포스터/지역/장르/공연시간 안내와 공연별 열린 방 수를 공연 목록/상세 응답에 추가했습니다.
 - 내 공연별 관심 태그 조회/저장 API를 추가했습니다.
 - 로컬/데모 데이터 생성을 위한 공연 seed API를 추가했습니다.
@@ -70,7 +71,7 @@
 | 완료 | Dev login 제거 | `dev-login`은 인증 우회 API라서 OAuth/JWT 흐름 검증을 흐리게 만듭니다. 프론트가 여기에 붙으면 나중에 실제 카카오 로그인으로 바꿀 때 다시 갈아엎게 됩니다. | `/api/auth/dev-login`과 관련 service/DTO/test를 제거했습니다. 없는 endpoint는 404가 나가도록 공통 예외 처리도 보강했습니다. | 앞으로 인증 테스트는 Kakao OAuth mock, 로컬 seed, 또는 test fixture로 처리합니다. |
 | 완료 | Seed API profile 제한 | seed API는 데모에는 편하지만 운영에 열려 있으면 임의 데이터가 생성될 수 있습니다. | seed controller/service에 `@Profile({"local", "test"})`를 적용했습니다. | 배포 데모 데이터가 필요하면 운영 API가 아니라 DB migration, private admin, 일회성 운영 스크립트 중 하나로 분리합니다. |
 | 완료 | Kakao Local 연동 | 기존 DB 검색만으로는 실제 앱의 장소 검색 UX를 검증하기 어렵습니다. 명세의 `PLACE-001/002`도 Kakao 키워드/주소 검색 성격에 가깝습니다. | Kakao Local client를 추가했고, 키가 있을 때 외부 API를 호출하도록 했습니다. 키가 없으면 DB fallback을 사용합니다. | 프론트 연동 전 로컬 `.env`에 `KAKAO_LOCAL_REST_API_KEY`를 넣고 검색 결과가 실제로 나오는지 확인합니다. |
-| 완료 | KOPIS DB cache/upsert | 공연 API가 seed/수동 DB에만 의존하면 실제 공연 검색 데모가 빈약해집니다. 반대로 FE 요청마다 외부 API 결과를 그대로 반환하면 KOPIS 장애나 좌표 누락에 취약합니다. | `GET /api/concerts` 앞에서 KOPIS 목록 → 공연 상세 → 시설 상세을 조회하고, 좌표가 있는 공연만 `concerts`에 `source=KOPIS`로 upsert합니다. KOPIS 실패 시 기존 DB 조회를 계속합니다. | `KOPIS_SERVICE_KEY`를 서버 env에 넣고 홈/검색 API를 호출하면 캐시가 채워집니다. 포스터/지역/장르/공연시간 안내는 KOPIS 상세값을 사용합니다. |
+| 완료 | KOPIS DB cache/upsert | 공연 API가 seed/수동 DB에만 의존하면 실제 공연 검색 데모가 빈약해집니다. 반대로 FE 요청마다 외부 API 결과를 그대로 반환하면 KOPIS 장애나 좌표 누락에 취약하고 응답 속도도 흔들립니다. | `GET /api/concerts`는 기본적으로 DB만 조회합니다. KOPIS 목록 → 공연 상세 → 시설 상세 조회와 `source=KOPIS` upsert는 초기 적재 job으로 분리했습니다. | `KOPIS_SERVICE_KEY`를 서버 env에 넣고, 배포 직후 `KOPIS_INITIAL_IMPORT_ENABLED=true`, `SPRING_MAIN_WEB_APPLICATION_TYPE=none`으로 1회 실행합니다. 이후 홈/검색 API는 DB cache 기준으로 동작합니다. |
 | 완료 | KOPIS 공연 시간 처리 | KOPIS `dtguidance`는 `토요일(16:00,19:00)`처럼 자유 텍스트라 모든 공연을 하나의 정확한 시작 시각으로 확정할 수 없습니다. 화면에는 원문 안내가 필요하고, 정렬에는 최소한의 `startAt`이 필요합니다. | `timeGuidance` 원문을 응답에 포함합니다. `HH:mm`이 정확히 1개면 `startAt`에 반영하고, 복수/없음이면 시작일 `00:00`으로 fallback합니다. | 다회차 공연의 특정 회차를 사용자가 선택해야 한다면, 나중에 공연 회차 테이블 또는 별도 schedule option API로 분리하는 것이 맞습니다. 현재 MVP에서는 카드 표시용 원문 안내와 보수적인 fallback이 최적입니다. |
 | 완료 | Kakao age/gender 미동의 처리 | 카카오는 성별/연령대 권한이 없거나 사용자가 동의하지 않으면 값을 주지 않습니다. 우리 서비스는 방장 판단에 성별/연령대가 필요해서 가입 완료 전에는 값을 받아야 합니다. | 로그인 시 값이 없으면 `NULL`로 저장합니다. 사용자가 CB-02에서 직접 입력하면 `profileCompleted=true`가 됩니다. | MVP에서는 "직접 입력 필수 + 비공개 없음"으로 확정했습니다. 나중에 카카오 권한을 받으면 기본값 prefill은 가능하지만, 최종 가입 완료에는 사용자가 값이 들어간 상태로 제출해야 합니다. |
 | 완료 | 프로필 비공개 필드 제거 | 방장 판단에 필요한 연령대/성별을 비공개로 숨길 수 있으면 UX와 안전 정책이 충돌합니다. | `PRIVATE` enum과 `ageVisible`, `genderVisible` 요청/응답/DB 필드를 제거했습니다. 기존 DB의 `PRIVATE` 값은 V3 migration에서 `NULL`로 정리합니다. | 프론트 CB-02 화면에서도 비공개 chip을 제거하고, 두 필드를 필수 선택으로 처리합니다. |

@@ -147,6 +147,7 @@ KOPIS_INITIAL_IMPORT_MAX_PAGES=100
 ```
 
 Vercel preview 도메인에서 API를 직접 호출해야 하면 `CORS_ALLOWED_ORIGINS`에 해당 preview origin을 쉼표로 추가한다.
+KOPIS 기본 endpoint는 공식 OpenAPI 개발가이드의 `http://www.kopis.or.kr/openApi/restful`을 따른다. `https://www.kopis.or.kr`는 redirect 경로를 타며, 초기 적재 중 KOPIS에서 `400 Request Blocked`가 발생할 수 있다.
 `KOPIS_INITIAL_IMPORT_ENABLED=true`는 일반 서버 실행용 `.env.prod`에 계속 넣지 않는다. 초기 적재를 1회 실행할 때만 command 환경변수로 넘긴다.
 
 권한을 제한한다.
@@ -193,6 +194,7 @@ docker compose -f compose.prod.yml run --rm \
 ```
 
 실행 로그에서 `KOPIS initial import finished`와 `fetchedCount`, `syncedCount`를 확인한다. 이후 일반 서버는 그대로 DB cache를 조회한다.
+`fetchedCount`는 KOPIS 목록 원본 건수가 아니라 상세/시설 조회까지 통과해 DB upsert 후보가 된 건수다.
 
 ## 7. 배포 중 자주 보는 문제
 

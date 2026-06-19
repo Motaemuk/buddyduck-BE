@@ -1,0 +1,153 @@
+# 일정 경로 계산 설계
+
+이 문서는 CB-11 일정 수정, CB-11' 초과 시간 경고, CB-12 지도 화면에서 사용하는 이동 구간 계산 방식을 정리한다. 이 기능은 사용자가 공연 전후 장소를 추가하고 순서를 조정할 때 "이 장소들을 실제로 소화할 수 있는가"를 판단하는 기반 기술이다.
+
+## 1. 사용자 플로우
+
+1. 사용자는 방 상세에서 일정 편집 화면으로 들어간다.
+2. CB-11에서 장소를 추가하거나 순서를 바꾸고, 각 장소의 머무는 시간을 조정한다.
+3. 장소 사이의 이동 수단은 구간별로 `WALK` 또는 `CAR_TAXI`를 선택한다.
+4. FE는 draft 요청을 보내고, BE는 각 route segment의 거리, 소요 시간, 요금 후보를 계산한다.
+5. 계산 결과가 공연 시작 또는 방장이 정한 기준 시간을 넘기면 CB-11'에서 초과 시간을 안내한다.
+6. 저장 가능한 상태라면 사용자가 수정 완료를 누르고, BE는 계산된 route segment를 DB에 저장한다.
+7. CB-12 지도 화면은 저장된 슬롯 순서와 route segment를 읽어서 핀, 선, 하단 장소 정보를 보여준다.
+
+이번 구현은 4번의 "이동 구간 계산"을 실제 API/fallback 기반으로 만든다. 장소 추천 순서를 자동으로 바꾸는 기능은 이 계산기를 이용해 별도 브랜치에서 추가하는 것이 안전하다.
+
+## 2. 현재 구현 범위
+
+`POST /api/schedules/{scheduleId}/draft/recalculate`와 `PUT /api/schedules/{scheduleId}/draft/commit`에서 route segment를 계산한다.
+
+- `manuallyAdjusted=true`: FE가 보낸 `durationMinutes`를 그대로 사용한다.
+- `manuallyAdjusted`가 없거나 `false`: from/to slot의 `placeId`로 장소 좌표를 찾고 자동 계산한다.
+- Kakao Mobility 호출이 비활성화되었거나 실패하면 좌표 직선거리 기반 fallback 값을 사용한다.
+- 장소 좌표가 없는 route segment는 기존 호환성을 위해 `MANUAL` 계산값으로 처리한다.
+
+## 3. 외부 API 사용 방식
+
+### WALK
+
+`WALK`는 Kakao Mobility Walking Directions API를 우선 사용한다.
+
+- 공식 문서: [Walking Directions](https://developers.kakaomobility.com/affiliate-en/walking/directions.html)
+- 요청 방식: `GET /affiliate/walking/v1/directions`
+- 주요 요청값:
+  - `origin`: `lng,lat`
+  - `destination`: `lng,lat`
+  - `priority=DISTANCE`
+  - `summary=true`
+- 사용하는 응답값:
+  - `routes[0].summary.distance`: 총 도보 거리, meter
+  - `routes[0].summary.duration`: 총 도보 소요 시간, second
+
+BE 응답에는 초 단위를 분 단위로 올림 처리해서 `durationMinutes`로 내려준다.
+
+### CAR_TAXI
+
+`CAR_TAXI`는 Kakao Mobility Driving Directions API를 우선 사용한다.
+
+- 공식 문서: [Driving Directions](https://developers.kakaomobility.com/affiliate-en/navi-api/directions.html)
+- 가격/쿼터 문서: [Kakao Mobility 가격 및 문의](https://developers.kakaomobility.com/price/)
+- 요청 방식: `GET /affiliate/v1/directions`
+- 주요 요청값:
+  - `origin`: `lng,lat`
+  - `destination`: `lng,lat`
+  - `priority=RECOMMEND`
+  - `summary=true`
+- 사용하는 응답값:
+  - `routes[0].summary.distance`: 총 차량 이동 거리, meter
+  - `routes[0].summary.duration`: 총 차량 이동 시간, second
+  - `routes[0].summary.fare.taxi`: 예상 택시요금, KRW
+  - `routes[0].summary.fare.toll`: 예상 통행료, KRW
+
+택시요금은 Kakao Driving Directions 응답값이 있을 때만 제공한다. fallback 계산에서는 요금을 만들지 않는다.
+
+## 4. 무료/쿼터 판단
+
+Kakao Mobility Driving Directions는 문서상 자동차 길찾기 일일 무료 제공량이 있다. 무료 제공량 초과분은 유료 정책을 따른다.
+
+Walking Directions API는 문서상 API와 응답 형식은 확인되지만, 자동차 길찾기처럼 공개 쿼터 표에 명확히 드러난 수량은 확인되지 않았다. 운영 적용 전 Kakao Mobility 승인과 Walking Directions 쿼터/과금 조건을 확인해야 한다.
+
+따라서 BE는 Kakao Mobility 호출 실패를 정상적인 상황으로 보고 fallback을 둔다. 발표나 MVP 검증에서는 API 승인 여부와 관계없이 일정 계산 흐름을 보여줄 수 있다.
+
+## 5. fallback 계산
+
+fallback은 Kakao Mobility가 꺼져 있거나 실패할 때 사용한다.
+
+| 모드 | 거리 계산 | 시간 계산 | 요금 |
+| --- | --- | --- | --- |
+| `WALK` | 좌표 직선거리 * 1.25 | 4km/h 기준 올림 | 없음 |
+| `CAR_TAXI` | 좌표 직선거리 * 1.35 | 평균 22km/h 기준 올림 | 없음 |
+
+fallback은 정확한 경로 탐색이 아니라 화면 흐름과 일정 가능 여부를 유지하기 위한 보수적 추정값이다. 응답의 `provider`가 `FALLBACK_STRAIGHT_LINE`이면 FE에서 "예상값"으로 표현하는 것이 좋다.
+
+## 6. FE 요청/응답에서 달라진 부분
+
+### 요청
+
+```json
+{
+  "fromClientId": "slot-meeting",
+  "toClientId": "slot-cafe",
+  "mode": "WALK",
+  "durationMinutes": 18,
+  "manuallyAdjusted": false
+}
+```
+
+`manuallyAdjusted`는 optional이다.
+
+- 생략 또는 `false`: BE가 장소 좌표 기반으로 다시 계산한다.
+- `true`: 사용자가 이동 시간을 직접 조정한 상태로 보고 `durationMinutes`를 그대로 사용한다.
+
+### draft 응답
+
+```json
+{
+  "fromClientId": "slot-meeting",
+  "toClientId": "slot-cafe",
+  "mode": "CAR_TAXI",
+  "distanceMeters": 1033,
+  "durationMinutes": 5,
+  "taxiFareWon": 3800,
+  "tollFareWon": 0,
+  "provider": "KAKAO_DRIVING",
+  "manuallyAdjusted": false
+}
+```
+
+`WALK` 또는 fallback에서는 `taxiFareWon`, `tollFareWon`이 비어 있을 수 있다.
+
+### timeline/map 응답
+
+`GET /api/rooms/{roomId}/timeline`, `GET /api/rooms/{roomId}/map`의 `routeSegments`에도 아래 필드가 포함된다.
+
+- `distanceMeters`
+- `durationMinutes`
+- `taxiFareWon`
+- `tollFareWon`
+- `provider`
+- `manuallyAdjusted`
+
+## 7. 서버 설정값
+
+운영 서버에서는 아래 값을 `.env.prod` 또는 서버 환경변수로 관리한다. 실제 값은 문서나 Git에 쓰지 않는다.
+
+```env
+KAKAO_MOBILITY_REST_API_KEY=<카카오 REST API 키>
+KAKAO_MOBILITY_SERVICE_NAME=buddyduck
+```
+
+현재 애플리케이션 설정은 `KAKAO_MOBILITY_REST_API_KEY`가 없으면 `KAKAO_LOCAL_REST_API_KEY`, 그다음 `KAKAO_CLIENT_ID`를 fallback으로 사용한다. 실제로는 같은 Kakao REST API 키를 쓰더라도, 기능별 목적이 다르므로 운영 문서에서는 Mobility 키를 별도 이름으로 관리한다.
+
+## 8. 다음 단계
+
+이번 구현은 "구간별 이동 비용 계산"까지다. 추천 순서 기능은 이 계산기를 기반으로 다음 순서로 확장한다.
+
+1. 슬롯 후보들의 모든 순서 또는 일부 후보 순서를 만든다.
+2. 각 순서의 route segment 비용을 계산한다.
+3. 전체 소요 시간이 가장 짧거나, 공연 전 여유 시간을 가장 잘 만족하는 순서를 추천한다.
+4. 추천 결과는 바로 저장하지 않고 CB-11 draft preview로 내려준다.
+5. 사용자는 추천 순서를 받아들이거나 직접 다시 순서를 바꿀 수 있다.
+
+장소 수가 적은 MVP에서는 완전 탐색이 단순하고 설명 가능하다. 장소 수가 많아지면 nearest-neighbor, 2-opt 같은 휴리스틱을 추가한다. AI는 최적 경로 계산의 주체로 쓰기보다, "왜 시간이 초과됐는지", "어떤 장소를 줄이거나 택시로 바꾸면 되는지"를 설명하는 보조 역할이 적합하다.

@@ -33,15 +33,13 @@ class KakaoMobilityRouteClientTest {
 
 		KakaoMobilityProperties properties = new KakaoMobilityProperties();
 		properties.setRestApiKey("test-rest-api-key");
-		properties.setDrivingDirectionsUri("https://apis-navi.kakaomobility.com/affiliate/v1/directions");
-		properties.setWalkingDirectionsUri("https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions");
-		properties.setServiceName("buddyduck-test");
+		properties.setDrivingDirectionsUri("https://apis-navi.kakaomobility.com/v1/directions");
 		client = new KakaoMobilityRouteClient(builder, properties);
 	}
 
 	@Test
 	void CAR_TAXI는_Driving_Directions_거리_시간_택시요금을_매핑한다() {
-		server.expect(requestTo(containsString("/affiliate/v1/directions")))
+		server.expect(requestTo(containsString("https://apis-navi.kakaomobility.com/v1/directions")))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "KakaoAK test-rest-api-key"))
 			.andExpect(queryParam("origin", encoded("127.1000000,37.5130000")))
 			.andExpect(queryParam("destination", encoded("127.1020000,37.5150000")))
@@ -80,13 +78,12 @@ class KakaoMobilityRouteClientTest {
 	}
 
 	@Test
-	void WALK는_Walking_Directions_거리와_시간을_매핑한다() {
-		server.expect(requestTo(containsString("/affiliate/walking/v1/directions")))
+	void WALK는_Driving_Directions_거리로_도보_시간을_추정한다() {
+		server.expect(requestTo(containsString("https://apis-navi.kakaomobility.com/v1/directions")))
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "KakaoAK test-rest-api-key"))
-			.andExpect(header("service", "buddyduck-test"))
 			.andExpect(queryParam("origin", encoded("127.1000000,37.5130000")))
 			.andExpect(queryParam("destination", encoded("127.1020000,37.5150000")))
-			.andExpect(queryParam("priority", "DISTANCE"))
+			.andExpect(queryParam("priority", "RECOMMEND"))
 			.andExpect(queryParam("summary", "true"))
 			.andRespond(withSuccess("""
 				{
@@ -94,8 +91,12 @@ class KakaoMobilityRouteClientTest {
 				    {
 				      "result_code": 0,
 				      "summary": {
-				        "distance": 1281,
-				        "duration": 1220
+				        "fare": {
+				          "taxi": 3800,
+				          "toll": 0
+				        },
+				        "distance": 1261,
+				        "duration": 300
 				      }
 				    }
 				  ]
@@ -109,9 +110,10 @@ class KakaoMobilityRouteClientTest {
 		);
 
 		assertThat(estimate).isPresent();
-		assertThat(estimate.get().provider()).isEqualTo(RouteEstimateProvider.KAKAO_WALKING.name());
-		assertThat(estimate.get().distanceMeters()).isEqualTo(1281);
-		assertThat(estimate.get().durationMinutes()).isEqualTo(21);
+		assertThat(estimate.get().mode()).isEqualTo(RouteMode.WALK);
+		assertThat(estimate.get().provider()).isEqualTo(RouteEstimateProvider.DRIVING_DISTANCE_WALK_ESTIMATE.name());
+		assertThat(estimate.get().distanceMeters()).isEqualTo(1261);
+		assertThat(estimate.get().durationMinutes()).isEqualTo(22);
 		assertThat(estimate.get().taxiFareWon()).isNull();
 		assertThat(estimate.get().tollFareWon()).isNull();
 		server.verify();

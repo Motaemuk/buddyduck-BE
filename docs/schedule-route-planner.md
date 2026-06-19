@@ -20,35 +20,35 @@
 
 - `manuallyAdjusted=true`: FE가 보낸 `durationMinutes`를 그대로 사용한다.
 - `manuallyAdjusted`가 없거나 `false`: from/to slot의 `placeId`로 장소 좌표를 찾고 자동 계산한다.
-- Kakao Mobility 호출이 비활성화되었거나 실패하면 좌표 직선거리 기반 fallback 값을 사용한다.
+- Kakao Mobility 호출이 비활성화된 로컬/테스트 환경에서는 좌표 직선거리 기반 fallback 값을 사용한다.
+- Kakao Mobility가 활성화된 상태에서 외부 API 호출이 실패하면 fallback으로 숨기지 않고 `SCHEDULE_ROUTE_ESTIMATION_FAILED` 에러를 반환한다.
 - 장소 좌표가 없는 route segment는 기존 호환성을 위해 `MANUAL` 계산값으로 처리한다.
 
 ## 3. 외부 API 사용 방식
 
 ### WALK
 
-`WALK`는 Kakao Mobility Walking Directions API를 우선 사용한다.
+`WALK`는 Kakao Mobility 도보 제휴 API를 직접 쓰지 않는다. 도보 API는 제휴/승인 조건이 자동차 길찾기보다 무거우므로, MVP에서는 자동차 길찾기 API로 실제 도로 이동 거리를 구한 뒤 평균 도보 속도로 시간을 추정한다.
 
-- 공식 문서: [Walking Directions](https://developers.kakaomobility.com/affiliate-en/walking/directions.html)
-- 요청 방식: `GET /affiliate/walking/v1/directions`
+- 공식 문서: [Driving Directions](https://developers.kakaomobility.com/guide/navi-api/directions)
+- 요청 방식: `GET /v1/directions`
 - 주요 요청값:
   - `origin`: `lng,lat`
   - `destination`: `lng,lat`
-  - `priority=DISTANCE`
+  - `priority=RECOMMEND`
   - `summary=true`
 - 사용하는 응답값:
-  - `routes[0].summary.distance`: 총 도보 거리, meter
-  - `routes[0].summary.duration`: 총 도보 소요 시간, second
+  - `routes[0].summary.distance`: 총 차량 경로 거리, meter
 
-BE 응답에는 초 단위를 분 단위로 올림 처리해서 `durationMinutes`로 내려준다.
+BE는 `distance / 60m`를 올림해서 `durationMinutes`로 내려준다. 즉 도보 속도를 약 3.6km/h로 보고, 콘서트 당일 혼잡과 초행길을 고려해 보수적으로 잡는다. 응답의 `provider`는 `DRIVING_DISTANCE_WALK_ESTIMATE`다.
 
 ### CAR_TAXI
 
 `CAR_TAXI`는 Kakao Mobility Driving Directions API를 우선 사용한다.
 
-- 공식 문서: [Driving Directions](https://developers.kakaomobility.com/affiliate-en/navi-api/directions.html)
+- 공식 문서: [Driving Directions](https://developers.kakaomobility.com/guide/navi-api/directions)
 - 가격/쿼터 문서: [Kakao Mobility 가격 및 문의](https://developers.kakaomobility.com/price/)
-- 요청 방식: `GET /affiliate/v1/directions`
+- 요청 방식: `GET /v1/directions`
 - 주요 요청값:
   - `origin`: `lng,lat`
   - `destination`: `lng,lat`
@@ -66,20 +66,18 @@ BE 응답에는 초 단위를 분 단위로 올림 처리해서 `durationMinutes
 
 Kakao Mobility Driving Directions는 문서상 자동차 길찾기 일일 무료 제공량이 있다. 무료 제공량 초과분은 유료 정책을 따른다.
 
-Walking Directions API는 문서상 API와 응답 형식은 확인되지만, 자동차 길찾기처럼 공개 쿼터 표에 명확히 드러난 수량은 확인되지 않았다. 운영 적용 전 Kakao Mobility 승인과 Walking Directions 쿼터/과금 조건을 확인해야 한다.
-
-따라서 BE는 Kakao Mobility 호출 실패를 정상적인 상황으로 보고 fallback을 둔다. 발표나 MVP 검증에서는 API 승인 여부와 관계없이 일정 계산 흐름을 보여줄 수 있다.
+Walking Directions API는 별도 제휴/승인 흐름을 전제로 하므로 MVP에서는 사용하지 않는다. 도보 구간도 Driving Directions의 거리값을 기반으로 시간만 추정한다.
 
 ## 5. fallback 계산
 
-fallback은 Kakao Mobility가 꺼져 있거나 실패할 때 사용한다.
+fallback은 Kakao Mobility 키가 비어 있는 로컬/테스트 환경에서만 사용한다. 운영처럼 Kakao Mobility 키가 활성화된 상태에서 API 호출이 실패하면 자동으로 직선거리 추정을 사용하지 않고 `SCHEDULE_ROUTE_ESTIMATION_FAILED` 에러를 반환한다.
 
 | 모드 | 거리 계산 | 시간 계산 | 요금 |
 | --- | --- | --- | --- |
 | `WALK` | 좌표 직선거리 * 1.25 | 4km/h 기준 올림 | 없음 |
 | `CAR_TAXI` | 좌표 직선거리 * 1.35 | 평균 22km/h 기준 올림 | 없음 |
 
-fallback은 정확한 경로 탐색이 아니라 화면 흐름과 일정 가능 여부를 유지하기 위한 보수적 추정값이다. 응답의 `provider`가 `FALLBACK_STRAIGHT_LINE`이면 FE에서 "예상값"으로 표현하는 것이 좋다.
+fallback은 정확한 경로 탐색이 아니라 로컬 개발과 자동 테스트의 화면 흐름을 유지하기 위한 추정값이다. 응답의 `provider`가 `FALLBACK_STRAIGHT_LINE`이면 FE에서 "예상값"으로 표현하는 것이 좋다.
 
 ## 6. FE 요청/응답에서 달라진 부분
 
@@ -118,6 +116,22 @@ fallback은 정확한 경로 탐색이 아니라 화면 흐름과 일정 가능 
 
 `WALK` 또는 fallback에서는 `taxiFareWon`, `tollFareWon`이 비어 있을 수 있다.
 
+`WALK` 자동 계산 응답은 아래처럼 내려온다.
+
+```json
+{
+  "fromClientId": "slot-meeting",
+  "toClientId": "slot-cafe",
+  "mode": "WALK",
+  "distanceMeters": 1261,
+  "durationMinutes": 22,
+  "taxiFareWon": null,
+  "tollFareWon": null,
+  "provider": "DRIVING_DISTANCE_WALK_ESTIMATE",
+  "manuallyAdjusted": false
+}
+```
+
 ### timeline/map 응답
 
 `GET /api/rooms/{roomId}/timeline`, `GET /api/rooms/{roomId}/map`의 `routeSegments`에도 아래 필드가 포함된다.
@@ -135,7 +149,6 @@ fallback은 정확한 경로 탐색이 아니라 화면 흐름과 일정 가능 
 
 ```env
 KAKAO_MOBILITY_REST_API_KEY=<카카오 REST API 키>
-KAKAO_MOBILITY_SERVICE_NAME=buddyduck
 ```
 
 현재 애플리케이션 설정은 `KAKAO_MOBILITY_REST_API_KEY`가 없으면 `KAKAO_LOCAL_REST_API_KEY`, 그다음 `KAKAO_CLIENT_ID`를 fallback으로 사용한다. 실제로는 같은 Kakao REST API 키를 쓰더라도, 기능별 목적이 다르므로 운영 문서에서는 Mobility 키를 별도 이름으로 관리한다.

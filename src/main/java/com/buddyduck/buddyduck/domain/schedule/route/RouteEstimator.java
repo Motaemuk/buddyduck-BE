@@ -2,6 +2,8 @@ package com.buddyduck.buddyduck.domain.schedule.route;
 
 import com.buddyduck.buddyduck.domain.place.entity.Place;
 import com.buddyduck.buddyduck.domain.schedule.enums.RouteMode;
+import com.buddyduck.buddyduck.domain.schedule.exception.ScheduleErrorCode;
+import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClientException;
@@ -17,9 +19,9 @@ public class RouteEstimator {
 		if (kakaoMobilityRouteClient.isEnabled()) {
 			try {
 				return kakaoMobilityRouteClient.estimate(mode, fromPlace, toPlace)
-					.orElseGet(() -> fallbackRouteEstimator.estimate(mode, fromPlace, toPlace));
+					.orElseThrow(() -> new ProjectException(ScheduleErrorCode.ROUTE_ESTIMATION_FAILED));
 			} catch (RestClientException ignored) {
-				return fallbackRouteEstimator.estimate(mode, fromPlace, toPlace);
+				throw new ProjectException(ScheduleErrorCode.ROUTE_ESTIMATION_FAILED);
 			}
 		}
 		return fallbackRouteEstimator.estimate(mode, fromPlace, toPlace);

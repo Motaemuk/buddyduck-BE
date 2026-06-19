@@ -123,8 +123,7 @@ http://localhost:8080/swagger-ui/index.html
 | `KAKAO_CLIENT_SECRET` | Kakao client secret | secret |
 | `KAKAO_ALLOWED_REDIRECT_URIS` | OAuth redirect URI allowlist | 설정값 |
 | `KAKAO_LOCAL_REST_API_KEY` | Kakao Local 장소 검색/주소 변환에 사용 | 서버 env로 관리 |
-| `KAKAO_MOBILITY_REST_API_KEY` | Kakao Mobility 도보/차량 길찾기에 사용 | 서버 env로 관리 |
-| `KAKAO_MOBILITY_SERVICE_NAME` | Walking Directions service header | 설정값 |
+| `KAKAO_MOBILITY_REST_API_KEY` | Kakao Mobility 차량 길찾기와 도보 시간 추정에 사용 | 서버 env로 관리 |
 | `KOPIS_SERVICE_KEY` | KOPIS Open API key | secret |
 | `KOPIS_INITIAL_IMPORT_*` | KOPIS 초기 적재 설정 | 설정값 |
 

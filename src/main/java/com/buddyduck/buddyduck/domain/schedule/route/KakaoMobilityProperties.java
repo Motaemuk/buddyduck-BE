@@ -13,9 +13,7 @@ import org.springframework.util.StringUtils;
 public class KakaoMobilityProperties {
 
 	private String restApiKey = "";
-	private String drivingDirectionsUri = "https://apis-navi.kakaomobility.com/affiliate/v1/directions";
-	private String walkingDirectionsUri = "https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions";
-	private String serviceName = "buddyduck";
+	private String drivingDirectionsUri = "https://apis-navi.kakaomobility.com/v1/directions";
 
 	public boolean enabled() {
 		return StringUtils.hasText(restApiKey);

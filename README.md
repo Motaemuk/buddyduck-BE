@@ -1,46 +1,94 @@
-# buddyduck-BE
+# Concert Buddy Backend
 
-Concert Buddy Spring Boot backend.
+공연 전후 시간을 함께 보낼 동행을 찾고, 방장이 일정과 장소를 관리할 수 있도록 돕는 Concert Buddy의 Spring Boot 백엔드입니다.
 
-## Requirements
+[API 서버](https://api.boostad.site/api/health) |
+[Swagger UI](https://api.boostad.site/swagger-ui/index.html) |
+[OpenAPI JSON](https://api.boostad.site/v3/api-docs)
+
+## 서비스 소개
+
+Concert Buddy는 공연을 보러 가는 사용자가 같은 공연을 보는 사람들과 방을 만들고, 입장 전후 일정과 장소를 함께 조율할 수 있도록 돕는 모바일 웹 서비스입니다.
+
+백엔드는 아래 흐름을 담당합니다.
+
+- Kakao OAuth 기반 로그인과 서비스 JWT 발급
+- 닉네임, 연령대, 성별 기반 프로필 완료 처리
+- KOPIS 기반 공연 데이터 적재와 공연 검색
+- 공연별 방 생성, 참여 요청, 승인, 오픈채팅 접근 제어
+- Kakao Local 기반 장소 검색과 좌표 변환
+- 방별 일정 타임라인, 지도 데이터, 일정 draft 저장 흐름
+
+## 백엔드 주요 기능
+
+| 영역 | 기능 |
+| --- | --- |
+| 인증 | Kakao OAuth, JWT bearer 인증, 프로필 완료 guard |
+| 공연 | KOPIS 초기 적재, 공연 목록/상세 조회, 공연별 관심 태그 |
+| 방 | 방 생성/조회, 참여 신청, 승인/거절, 오픈채팅 링크 접근 제어 |
+| 장소 | Kakao Local 장소 검색, 주소 좌표 변환, 장소 upsert |
+| 일정 | 타임라인 조회, 지도 bounds 조회, 일정 draft 미리보기/확정 |
+| 운영 | 공통 응답 envelope, 전역 예외 처리, Swagger/OpenAPI, Flyway migration |
+
+## 시스템 흐름
+
+![Concert Buddy AWS Architecture](docs/assets/concert-buddy-architecture.png)
+
+Spring Boot 애플리케이션은 외부에 직접 8080 포트를 열지 않고, EC2의 Caddy가 HTTPS 요청을 받아 Docker network 내부의 app container로 전달합니다.
+
+## 기술 스택
+
+| 구분 | 기술 |
+| --- | --- |
+| Language | Java 17 |
+| Framework | Spring Boot, Spring Web, Spring Security |
+| Database | MySQL, H2(test), Spring Data JPA, Flyway |
+| API 문서 | springdoc-openapi, Swagger UI |
+| Infra | Docker, Docker Compose, Caddy, AWS EC2, AWS RDS |
+| External API | Kakao OAuth, Kakao Local, KOPIS Open API |
+| Test | JUnit 5, Spring Boot Test |
+
+## 빠른 시작
+
+### 요구사항
 
 - Java 17
-- Gradle wrapper included
-- Docker or Colima for local MySQL
+- Docker 또는 Colima
+- Git
 
-If the machine default Java is newer than the Gradle wrapper supports, run commands with Java 17:
+macOS에서 기본 Java 버전이 Gradle wrapper와 맞지 않으면 아래처럼 Java 17을 명시합니다.
 
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew test
 ```
 
-## Local Run
-
-The default `local` profile uses MySQL. Copy `.env.example` to `.env`, then edit `.env` if you want different local credentials.
+### 환경 변수 준비
 
 ```bash
 cp .env.example .env
 ```
 
-Start local MySQL:
+`.env`에는 실제 비밀값을 넣을 수 있지만, `.env` 자체는 Git에 커밋하지 않습니다.
+
+### 로컬 MySQL 실행
 
 ```bash
 docker compose up -d mysql
 ```
 
-Run the app:
+### 애플리케이션 실행
 
 ```bash
 JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew bootRun
 ```
 
-Health check:
+### 헬스 체크
 
 ```bash
 curl http://localhost:8080/api/health
 ```
 
-Expected response:
+정상 응답:
 
 ```json
 {
@@ -53,190 +101,79 @@ Expected response:
 }
 ```
 
-Swagger UI:
+### Swagger
 
 ```text
 http://localhost:8080/swagger-ui/index.html
 ```
 
-OpenAPI JSON:
+## 환경 변수
 
-```text
-http://localhost:8080/v3/api-docs
-```
+실제 값은 `.env`, EC2의 `.env.prod`, GitHub Secrets 같은 안전한 위치에만 둡니다. README, PR, Wiki, Slack에 실제 secret을 적지 않습니다.
 
-Stop local MySQL:
+| 변수 | 용도 | 관리 방식 |
+| --- | --- | --- |
+| `JWT_SECRET_KEY` | 서비스 JWT 서명 키 | secret |
+| `JWT_ACCESS_EXPIRATION` | access token 만료 시간 | 설정값 |
+| `DB_URL` | MySQL/RDS JDBC URL | secret |
+| `DB_USERNAME` | DB 사용자명 | secret |
+| `DB_PASSWORD` | DB 비밀번호 | secret |
+| `CORS_ALLOWED_ORIGINS` | FE origin allowlist | 설정값 |
+| `KAKAO_CLIENT_ID` | Kakao REST API 키, OAuth token 교환에 사용 | FE OAuth client_id로도 공유 |
+| `KAKAO_CLIENT_SECRET` | Kakao client secret | secret |
+| `KAKAO_ALLOWED_REDIRECT_URIS` | OAuth redirect URI allowlist | 설정값 |
+| `KAKAO_LOCAL_REST_API_KEY` | Kakao Local 장소 검색/주소 변환에 사용 | 서버 env로 관리 |
+| `KOPIS_SERVICE_KEY` | KOPIS Open API key | secret |
+| `KOPIS_INITIAL_IMPORT_*` | KOPIS 초기 적재 설정 | 설정값 |
 
-```bash
-docker compose down
-```
+Kakao 로그인에서 FE는 REST API 키를 `client_id`로 사용하고, BE는 전달받은 `code`를 Kakao token으로 교환합니다. 자세한 FE 연동 방식은 [FE 연동 가이드](docs/fe-integration-guide.md)를 확인합니다.
 
-Remove the local MySQL volume when you want a clean database:
+## 데이터베이스와 마이그레이션
 
-```bash
-docker compose down -v
-```
-
-## Kakao OAuth
-
-The frontend receives a Kakao authorization code, then sends it to this backend. The backend exchanges the code for a Kakao token, reads Kakao user info, creates or finds the user, and returns a service JWT.
-
-Local environment values:
-
-```properties
-JWT_SECRET_KEY=replace-with-at-least-32-byte-secret-key
-JWT_ACCESS_EXPIRATION=3600000
-KAKAO_CLIENT_ID=replace-with-kakao-rest-api-key
-KAKAO_CLIENT_SECRET=
-KAKAO_ALLOWED_REDIRECT_URIS=http://localhost:5173/oauth/kakao/callback
-# Optional. If omitted, Kakao Local uses KAKAO_CLIENT_ID.
-KAKAO_LOCAL_REST_API_KEY=replace-with-kakao-rest-api-key
-KOPIS_SERVICE_KEY=
-KOPIS_MAX_SYNC_ROWS=10
-KOPIS_SYNC_ON_QUERY=false
-```
-
-Kakao Developers setup:
-
-- Create a Kakao app and enable Kakao Login.
-- Register the local frontend domain, for example `http://localhost:5173`.
-- Register the exact redirect URI used by the frontend, for example `http://localhost:5173/oauth/kakao/callback`.
-- Copy the REST API key to `KAKAO_CLIENT_ID`.
-- Optionally copy the same REST API key to `KAKAO_LOCAL_REST_API_KEY` for Kakao Local place search. If this value is omitted, the backend falls back to `KAKAO_CLIENT_ID`.
-- If Kakao client secret is enabled, copy it to `KAKAO_CLIENT_SECRET`; otherwise leave it empty.
-- Configure the profile nickname consent item. Age range and gender are stored when Kakao returns them; otherwise they are saved as `PRIVATE`.
-
-Login request:
-
-```bash
-curl -X POST http://localhost:8080/api/auth/kakao/login \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "code": "<kakao-authorization-code>",
-    "redirectUri": "http://localhost:5173/oauth/kakao/callback"
-  }'
-```
-
-Login response result:
-
-```json
-{
-  "accessToken": "<service-jwt>",
-  "isNewUser": true,
-  "profileCompleted": false,
-  "user": {
-    "id": 1,
-    "nickname": "duck_fan"
-  }
-}
-```
-
-Use the service JWT for protected APIs:
-
-```bash
-curl http://localhost:8080/api/users/me \
-  -H 'Authorization: Bearer <service-jwt>'
-```
-
-## Kakao Local
-
-`GET /api/places/search` and `GET /api/places/geocode` call Kakao Local when `KAKAO_LOCAL_REST_API_KEY` or `KAKAO_CLIENT_ID` is configured. If no key is configured, they fall back to locally stored `places` rows, which is useful for tests and offline local development.
-
-Kakao Developers setup:
-
-- Open your Kakao app in Kakao Developers.
-- Go to App settings and copy the REST API key.
-- Put the key in `.env` as `KAKAO_LOCAL_REST_API_KEY`, or rely on the existing `KAKAO_CLIENT_ID` fallback when the same Kakao app key is used.
-- No redirect URI is needed for Kakao Local. Redirect URI is only for Kakao Login.
-
-Required request header used by the backend:
-
-```text
-Authorization: KakaoAK <REST_API_KEY>
-```
-
-## KOPIS Concert Sync
-
-`GET /api/concerts` is DB-backed by default. For the MVP demo, run a one-time KOPIS import first, then let the home/search screen query the cached `concerts` rows.
-
-Local or server environment values:
-
-```properties
-KOPIS_SERVICE_KEY=<kopis-service-key>
-KOPIS_MAX_SYNC_ROWS=10
-KOPIS_SYNC_ON_QUERY=false
-KOPIS_INITIAL_IMPORT_DAYS=30
-KOPIS_INITIAL_IMPORT_ROWS=100
-KOPIS_INITIAL_IMPORT_MAX_PAGES=100
-```
-
-One-time import command:
-
-```bash
-KOPIS_INITIAL_IMPORT_ENABLED=true \
-SPRING_MAIN_WEB_APPLICATION_TYPE=none \
-JAVA_HOME=$(/usr/libexec/java_home -v 17) \
-./gradlew bootRun
-```
-
-On EC2 Docker Compose, run the same app image as a one-off container with `KOPIS_INITIAL_IMPORT_ENABLED=true` and `SPRING_MAIN_WEB_APPLICATION_TYPE=none`. Do not keep `KOPIS_INITIAL_IMPORT_ENABLED=true` in the normal server `.env.prod`.
-
-Notes:
-
-- Do not commit the real KOPIS key.
-- KOPIS date range requests are capped to 31 days. With the default `KOPIS_INITIAL_IMPORT_DAYS=30`, the import covers today through today plus 30 days.
-- KOPIS concert detail can include `poster`, `area`, `genrenm`, and `dtguidance`. Synced rows expose them as `posterUrl`, `area`, `genre`, and `timeGuidance`.
-- `dtguidance` is a free-form text guide. If it contains exactly one distinct `HH:mm`, the sync sets `startAt` to that time on the start date. If it has multiple times or no time, `startAt` falls back to `00:00`. `endAt` is stored as the end date at `23:59:59`.
-- `openRoomCount` is calculated from current `OPEN` rooms, not from KOPIS.
-
-## Test Profile
-
-Tests use the `test` profile with in-memory H2. They do not require Docker.
-
-```bash
-JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew test
-```
-
-## Migration
-
-Flyway runs versioned SQL migrations from:
+Flyway는 아래 경로의 versioned SQL migration을 실행합니다.
 
 ```text
 src/main/resources/db/migration
 ```
 
-Current baseline:
+로컬 개발은 Docker MySQL을 사용하고, 테스트는 H2 기반 `test` profile을 사용합니다. 운영은 `prod` profile에서 RDS MySQL에 연결합니다.
 
-```text
-V1__init_schema.sql
-```
+## 배포
 
-## RDS Profile
+운영 배포는 EC2에서 Docker Compose로 `app`과 `caddy` container를 실행하는 구조입니다.
 
-Use the `prod` profile for MySQL/RDS. Set values in the server environment, not in git-tracked files.
+- Caddy: 80/443 수신, HTTPS, reverse proxy
+- App: Spring Boot API, Docker 내부 8080
+- RDS: MySQL 영속 데이터
+
+자세한 서버 설정과 배포 명령은 [EC2 배포 가이드](docs/deploy-ec2.md)를 확인합니다.
+
+## 문서
+
+| 문서 | 용도 |
+| --- | --- |
+| [FE 연동 가이드](docs/fe-integration-guide.md) | FE 개발자가 Kakao OAuth, JWT, 프로필 완료, 지도/장소 API를 붙일 때 보는 문서 |
+| [EC2 배포 가이드](docs/deploy-ec2.md) | EC2, Docker Compose, Caddy, RDS 기반 배포/운영 문서 |
+| [트러블슈팅](docs/troubleshooting.md) | CORS, Kakao OAuth, Docker, Caddy, KOPIS 등 자주 겪은 문제 해결 |
+
+서비스 소개, 아키텍처 결정, 외부 API 연동 회고, CodeRabbit 리뷰에서 얻은 교훈은 GitHub Wiki로 분리해 정리합니다.
+
+## 테스트
 
 ```bash
-SPRING_PROFILES_ACTIVE=prod
-DB_URL=jdbc:mysql://<rds-endpoint>:3306/<database-name>
-DB_USERNAME=<database-user>
-DB_PASSWORD=<database-password>
+JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew test
 ```
 
-## EC2 Docker Deployment
+테스트는 `test` profile과 H2를 사용하므로 Docker MySQL 없이 실행할 수 있습니다.
 
-EC2 Docker/Caddy deployment notes are in [docs/deploy-ec2.md](docs/deploy-ec2.md).
+## 현재 MVP 범위
 
-## Current Scope
+- Kakao OAuth 로그인과 JWT 인증
+- 프로필 완료 상태 기반 API 접근 제어
+- KOPIS 기반 공연 데이터 cache와 공연 검색
+- 공연별 방 생성과 참여 요청/승인
+- Kakao Local 기반 장소 검색과 좌표 변환
+- 방별 일정 타임라인/지도/draft 저장 API
+- EC2, Caddy, Docker, RDS 기반 배포
 
-- Spring Boot foundation
-- Common API response envelope
-- Common exception handler
-- `GET /api/health`
-- `POST /api/auth/kakao/login`
-- JWT bearer authentication
-- `GET /api/users/me`
-- `PATCH /api/users/me/profile`
-- Swagger UI and OpenAPI JSON
-- ERD-based JPA domain skeleton and repositories
-- Local MySQL Docker Compose
-- Flyway schema migration baseline
+추억방, 미디어 업로드, 알림, 고도화된 경로/소요시간 계산은 MVP 이후 범위로 둡니다.

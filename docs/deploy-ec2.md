@@ -28,15 +28,15 @@ AWS Security Group에서도 같은 의도를 유지한다.
 - `8080`: Spring Boot 컨테이너는 Caddy 뒤의 Docker network 내부에서만 접근한다.
 - `3306`: RDS Security Group에서 EC2 Security Group만 허용한다.
 
-## 2. Gabia DNS 설정
+## 2. DNS 설정
 
 API 서버는 프론트와 분리하기 위해 `api.boostad.site`를 사용한다.
 
-Gabia DNS 관리 화면에서 레코드를 추가한다.
+DNS 관리 화면에서 레코드를 추가한다. 현재 운영은 EC2에 Elastic IP를 연결하고, `api.boostad.site`가 그 Elastic IP를 바라보게 두는 방식을 기준으로 한다.
 
 | 타입 | 호스트 | 값/위치 | TTL |
 | --- | --- | --- | --- |
-| A | `api` | `<ec2-public-ip>` | 기본값 사용 |
+| A | `api` | `<ec2-elastic-ip>` | 기본값 사용 |
 
 저장 후 전파를 확인한다.
 
@@ -47,13 +47,15 @@ dig +short api.boostad.site
 기대값:
 
 ```text
-<ec2-public-ip>
+<ec2-elastic-ip>
 ```
 
 참고:
 
 - `boostad.site` 자체를 API 서버로 쓰려면 호스트를 `@`로 둔다.
 - 프론트엔드를 Vercel에 둘 계획이면 root 또는 `www`는 프론트용으로 남기고, API는 `api.boostad.site`로 분리하는 편이 깔끔하다.
+- Cloudflare를 사용한다면 API 레코드는 orange cloud proxy를 켜도 되지만, Caddy 인증서 발급이나 장애 원인 확인 때는 일시적으로 `DNS only`로 바꾸면 원인 분리가 쉽다.
+- EC2를 중지/시작할 일이 있다면 public IP가 바뀌지 않도록 Elastic IP를 연결한다.
 
 ## 3. EC2 배포 디렉터리 준비
 
@@ -137,6 +139,7 @@ CORS_ALLOWED_ORIGINS=https://boostad.site,https://www.boostad.site
 
 KAKAO_CLIENT_ID=<kakao-rest-api-key>
 KAKAO_CLIENT_SECRET=
+KAKAO_ALLOWED_REDIRECT_URIS=https://www.boostad.site/oauth/kakao/callback,https://boostad.site/oauth/kakao/callback
 KAKAO_LOCAL_REST_API_KEY=<kakao-rest-api-key>
 
 KOPIS_SERVICE_KEY=<kopis-service-key>
@@ -213,8 +216,8 @@ dig +short api.boostad.site
 
 해결:
 
-- Gabia DNS A 레코드의 host가 `api`인지 확인한다.
-- 값이 현재 EC2 public IP인지 확인한다.
+- DNS A 레코드의 host가 `api`인지 확인한다.
+- 값이 현재 EC2 Elastic IP인지 확인한다.
 - DNS 전파까지 기다린다.
 
 ### Caddy 인증서 발급 실패

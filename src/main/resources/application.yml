@@ -36,6 +36,11 @@ kakao:
     rest-api-key: ${KAKAO_LOCAL_REST_API_KEY:${KAKAO_CLIENT_ID:}}
     keyword-search-uri: https://dapi.kakao.com/v2/local/search/keyword.json
     address-search-uri: https://dapi.kakao.com/v2/local/search/address.json
+  mobility:
+    rest-api-key: ${KAKAO_MOBILITY_REST_API_KEY:${KAKAO_LOCAL_REST_API_KEY:${KAKAO_CLIENT_ID:}}}
+    service-name: ${KAKAO_MOBILITY_SERVICE_NAME:buddyduck}
+    driving-directions-uri: https://apis-navi.kakaomobility.com/affiliate/v1/directions
+    walking-directions-uri: https://apis-navi.kakaomobility.com/affiliate/walking/v1/directions
 
 kopis:
   service-key: ${KOPIS_SERVICE_KEY:}

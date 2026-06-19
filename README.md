@@ -158,6 +158,16 @@ src/main/resources/db/migration
 
 서비스 소개, 아키텍처 결정, 외부 API 연동 회고, CodeRabbit 리뷰에서 얻은 교훈은 GitHub Wiki로 분리해 정리합니다.
 
+| Wiki | 내용 |
+| --- | --- |
+| [Wiki Home](https://github.com/Motaemuk/buddyduck-BE/wiki) | 백엔드 Wiki 문서 지도 |
+| [서비스 개요](https://github.com/Motaemuk/buddyduck-BE/wiki/서비스-개요) | MVP 범위, 백엔드 책임, 주요 API 흐름 |
+| [백엔드 아키텍처](https://github.com/Motaemuk/buddyduck-BE/wiki/백엔드-아키텍처) | Vercel, EC2, Caddy, Spring Boot, RDS, 외부 API 구조 |
+| [인프라 배포 운영](https://github.com/Motaemuk/buddyduck-BE/wiki/인프라-배포-운영) | EC2, Docker Compose, Caddy, RDS, DNS, secret 운영 기준 |
+| [외부 API 연동](https://github.com/Motaemuk/buddyduck-BE/wiki/외부-API-연동) | Kakao OAuth, Kakao Local/Map, KOPIS 연동 방식과 주의점 |
+| [FE 연동 가이드](https://github.com/Motaemuk/buddyduck-BE/wiki/FE-연동-가이드) | FE 개발자가 알아야 할 env, OAuth, JWT, profile flow |
+| [리뷰 회고](https://github.com/Motaemuk/buddyduck-BE/wiki/리뷰-회고) | CodeRabbit/PR 리뷰에서 얻은 반복 가능한 개선 포인트 |
+
 ## 테스트
 
 ```bash

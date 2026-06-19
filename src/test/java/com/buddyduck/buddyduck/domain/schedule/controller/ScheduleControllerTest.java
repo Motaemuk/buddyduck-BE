@@ -111,7 +111,11 @@ class ScheduleControllerTest {
 			.andExpect(jsonPath("$.result.fitStatus").value("OK"))
 			.andExpect(jsonPath("$.result.overrunMinutes").value(0))
 			.andExpect(jsonPath("$.result.slots[0].clientId").value("slot-meeting"))
-			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"));
+			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"))
+			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").isNumber())
+			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("FALLBACK_STRAIGHT_LINE"))
+			.andExpect(jsonPath("$.result.routeSegments[0].manuallyAdjusted").value(false))
+			.andExpect(jsonPath("$.result.routeSegments[0].taxiFareWon").doesNotExist());
 
 		Integer slotCount = jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM schedule_slots WHERE schedule_id = ?",
@@ -150,7 +154,10 @@ class ScheduleControllerTest {
 			.andExpect(jsonPath("$.result.room.id").value(roomId))
 			.andExpect(jsonPath("$.result.schedule.id").value(scheduleId))
 			.andExpect(jsonPath("$.result.slots[0].title").value("잠실역 5번 출구"))
-			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"));
+			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"))
+			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").isNumber())
+			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("FALLBACK_STRAIGHT_LINE"))
+			.andExpect(jsonPath("$.result.routeSegments[0].manuallyAdjusted").value(false));
 
 		Integer slotCount = jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM schedule_slots WHERE schedule_id = ?",
@@ -175,8 +182,27 @@ class ScheduleControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.result.slots[0].title").value("잠실역 5번 출구"))
 			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"))
+			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").isNumber())
+			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("FALLBACK_STRAIGHT_LINE"))
 			.andExpect(jsonPath("$.result.mapBounds.southWest.lat").value(37.513))
 			.andExpect(jsonPath("$.result.mapBounds.northEast.lng").value(127.102));
+	}
+
+	@Test
+	void 수동_조정된_이동구간은_입력된_시간을_그대로_사용한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(draftPayload());
+		ArrayNode routeSegments = (ArrayNode) payload.path("routeSegments");
+		((ObjectNode) routeSegments.get(0)).put("manuallyAdjusted", true);
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.routeSegments[0].durationMinutes").value(18))
+			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("MANUAL"))
+			.andExpect(jsonPath("$.result.routeSegments[0].manuallyAdjusted").value(true))
+			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").doesNotExist());
 	}
 
 	private Map<String, Object> draftPayload() {

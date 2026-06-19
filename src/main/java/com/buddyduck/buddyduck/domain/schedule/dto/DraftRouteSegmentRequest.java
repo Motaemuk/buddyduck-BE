@@ -17,6 +17,8 @@ public record DraftRouteSegmentRequest(
 
 	@NotNull
 	@PositiveOrZero
-	Integer durationMinutes
+	Integer durationMinutes,
+
+	Boolean manuallyAdjusted
 ) {
 }

@@ -22,7 +22,9 @@ public interface ConcertRepository extends JpaRepository<Concert, Long> {
 			OR LOWER(c.venueName) LIKE CONCAT('%', :keyword, '%'))
 			AND (:from IS NULL OR c.startAt >= :from)
 			AND (:to IS NULL OR c.startAt < :to)
-			AND (:region IS NULL OR LOWER(c.venueName) LIKE CONCAT('%', :region, '%'))
+			AND (:region IS NULL
+				OR LOWER(c.area) LIKE CONCAT('%', :region, '%')
+				OR LOWER(c.venueName) LIKE CONCAT('%', :region, '%'))
 		ORDER BY c.startAt ASC, c.id ASC
 		""")
 	Page<Concert> search(String keyword, LocalDateTime from, LocalDateTime to, String region, Pageable pageable);

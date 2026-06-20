@@ -5,6 +5,7 @@ import com.buddyduck.buddyduck.domain.place.kakao.KakaoLocalPlaceCandidate;
 import java.math.BigDecimal;
 
 public record PlaceSearchItemResponse(
+	String providerPlaceId,
 	String name,
 	String address,
 	BigDecimal lat,
@@ -14,6 +15,7 @@ public record PlaceSearchItemResponse(
 
 	public static PlaceSearchItemResponse from(Place place) {
 		return new PlaceSearchItemResponse(
+			place.getProviderPlaceId(),
 			place.getName(),
 			place.getAddress(),
 			place.getLat(),
@@ -24,6 +26,7 @@ public record PlaceSearchItemResponse(
 
 	public static PlaceSearchItemResponse from(KakaoLocalPlaceCandidate candidate) {
 		return new PlaceSearchItemResponse(
+			candidate.providerPlaceId(),
 			candidate.name(),
 			candidate.address(),
 			candidate.lat(),

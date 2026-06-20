@@ -283,6 +283,7 @@ Authorization: Bearer <jwt>
 ```
 
 검색/지오코딩 결과는 후보 목록입니다. 사용자가 장소를 선택한 뒤에는 `POST /api/places`를 호출해서 `placeId`를 받아야 방 생성, 일정 저장 같은 API에 연결할 수 있습니다.
+`/api/places/search` 응답의 `providerPlaceId`는 선택한 장소를 다시 저장할 때 그대로 `POST /api/places` 요청에 넣어 주세요. 이 값을 같이 보내면 같은 Kakao 장소를 중복 생성하지 않고 재사용할 수 있습니다.
 
 ## 9. 일정 경로 계산 연동
 

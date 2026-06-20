@@ -287,6 +287,24 @@ Authorization: Bearer <jwt>
 
 ## 9. 일정 경로 계산 연동
 
+CB-11 일정 편집에서는 시작/도착 기준도 함께 보냅니다.
+
+```json
+{
+  "customStartAt": "2026-06-15T14:00:00+09:00",
+  "targetArrivalAt": "2026-06-15T18:30:00+09:00",
+  "arrivalBufferMinutes": 30
+}
+```
+
+- `customStartAt`: 사용자가 수정 화면에서 확정한 실제 시작 시간입니다. 사용자가 권장 시작 시간을 적용하면 이 값에 `recommendedStartAt`을 넣어 다시 요청하면 됩니다.
+- `targetArrivalAt`: 공연장 도착 목표 시간입니다. 값이 없으면 BE는 공연 시작 시간에서 `arrivalBufferMinutes`를 뺀 시간을 사용합니다.
+- `recommendedStartAt`: BE가 계산해서 내려주는 권장 시작 시간입니다. 읽기 전용 안내값으로 사용하면 됩니다.
+- `fitStatus=OVERRUN`: 사용자 시작 시간 기준으로 목표 도착 시간을 넘긴 상태입니다. 이때 `overrunMinutes`를 CB-11' 경고에 표시하면 됩니다.
+- `spareMinutes`: 목표 도착 시간까지 남는 여유 시간입니다.
+
+`POST /api/schedules/{scheduleId}/draft/recalculate` 응답의 `slots`에는 계산된 `startAt`, `endAt`이 포함됩니다. FE는 장소 추가, 삭제, 순서 변경, 머무는 시간 변경, 이동수단 변경, 시작/도착 기준 변경 후 draft 요청을 보내고 이 값을 화면에 반영하면 됩니다.
+
 CB-11 일정 편집에서는 route segment마다 이동 수단과 수동 조정 여부를 함께 보냅니다.
 
 ```json

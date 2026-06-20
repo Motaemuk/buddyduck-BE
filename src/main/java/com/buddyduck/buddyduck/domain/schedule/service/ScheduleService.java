@@ -27,6 +27,8 @@ import com.buddyduck.buddyduck.domain.schedule.enums.SlotType;
 import com.buddyduck.buddyduck.domain.schedule.repository.RouteSegmentRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleSlotRepository;
+import com.buddyduck.buddyduck.domain.schedule.route.RouteEstimate;
+import com.buddyduck.buddyduck.domain.schedule.route.RouteEstimator;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.math.BigDecimal;
@@ -43,6 +45,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 @RequiredArgsConstructor
@@ -56,6 +59,8 @@ public class ScheduleService {
 	private final PlaceRepository placeRepository;
 	private final RoomMemberRepository roomMemberRepository;
 	private final RoomService roomService;
+	private final RouteEstimator routeEstimator;
+	private final TransactionTemplate transactionTemplate;
 
 	@Transactional(readOnly = true)
 	public TimelineResponse getTimeline(Long roomId, Long userId) {
@@ -75,26 +80,65 @@ public class ScheduleService {
 		);
 	}
 
-	@Transactional(readOnly = true)
 	public DraftScheduleResponse recalculateDraft(Long scheduleId, Long userId, DraftScheduleRequest request) {
-		Schedule schedule = getScheduleOrThrow(scheduleId);
-		requireRoomAccess(schedule.getRoom(), userId);
-		validateDraft(request);
+		DraftCalculationContext context = loadDraftCalculationContext(scheduleId, userId, request);
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments = resolveRouteSegments(
+			request.routeSegments(),
+			context.draftSlotsByClientId(),
+			context.placesById()
+		);
 
 		return new DraftScheduleResponse(
 			"OK",
 			0,
 			request.slots().stream().map(DraftSlotResponse::from).toList(),
-			request.routeSegments().stream().map(DraftRouteSegmentResponse::from).toList(),
+			resolvedRouteSegments.stream().map(ResolvedDraftRouteSegment::toResponse).toList(),
 			List.of()
 		);
 	}
 
-	@Transactional
 	public TimelineResponse commitDraft(Long scheduleId, Long userId, DraftScheduleRequest request) {
+		DraftCalculationContext context = loadDraftCalculationContext(scheduleId, userId, request);
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments = resolveRouteSegments(
+			request.routeSegments(),
+			context.draftSlotsByClientId(),
+			context.placesById()
+		);
+
+		return Objects.requireNonNull(transactionTemplate.execute(status -> saveDraft(
+			scheduleId,
+			userId,
+			request,
+			resolvedRouteSegments
+		)));
+	}
+
+	private DraftCalculationContext loadDraftCalculationContext(
+		Long scheduleId,
+		Long userId,
+		DraftScheduleRequest request
+	) {
+		return Objects.requireNonNull(transactionTemplate.execute(status -> {
+			Schedule schedule = getScheduleOrThrow(scheduleId);
+			requireRoomAccess(schedule.getRoom(), userId);
+			validateDraft(request);
+			return new DraftCalculationContext(
+				draftSlotsByClientId(request),
+				findPlacesById(request.slots())
+			);
+		}));
+	}
+
+	private TimelineResponse saveDraft(
+		Long scheduleId,
+		Long userId,
+		DraftScheduleRequest request,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+	) {
 		Schedule schedule = getScheduleOrThrow(scheduleId);
 		requireRoomAccess(schedule.getRoom(), userId);
 		validateDraft(request);
+		Map<Long, Place> placesById = findPlacesById(request.slots());
 
 		routeSegmentRepository.deleteAllByScheduleId(scheduleId);
 		routeSegmentRepository.flush();
@@ -102,26 +146,34 @@ public class ScheduleService {
 		scheduleSlotRepository.flush();
 		schedule.updateArrivalBufferMinutes(request.arrivalBufferMinutes());
 
-		Map<String, ScheduleSlot> savedSlots = saveSlots(schedule, request);
-		saveRouteSegments(schedule, request.routeSegments(), savedSlots);
+		Map<String, ScheduleSlot> savedSlots = saveSlots(schedule, request, placesById, resolvedRouteSegments);
+		saveRouteSegments(schedule, resolvedRouteSegments, savedSlots);
 
 		return toTimeline(schedule.getRoom(), schedule);
 	}
 
-	private Map<String, ScheduleSlot> saveSlots(Schedule schedule, DraftScheduleRequest request) {
+	private Map<String, ScheduleSlot> saveSlots(
+		Schedule schedule,
+		DraftScheduleRequest request,
+		Map<Long, Place> placesById,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+	) {
 		List<DraftSlotRequest> sortedSlots = request.slots().stream()
 			.sorted(Comparator.comparing(DraftSlotRequest::order))
 			.toList();
-		Map<String, DraftRouteSegmentRequest> routeByToClientId = request.routeSegments().stream()
-			.collect(LinkedHashMap::new, (map, route) -> map.put(route.toClientId(), route), Map::putAll);
+		Map<String, Integer> routeDurationByToClientId = resolvedRouteSegments.stream()
+			.collect(
+				LinkedHashMap::new,
+				(map, route) -> map.put(route.request().toClientId(), route.estimate().durationMinutes()),
+				Map::putAll
+			);
 		Map<String, ScheduleSlot> savedSlots = new LinkedHashMap<>();
-		Map<Long, Place> placesById = findPlacesById(sortedSlots);
 		LocalDateTime current = schedule.getRoom().getMeetingAt();
 
 		for (DraftSlotRequest draftSlot : sortedSlots) {
-			DraftRouteSegmentRequest incomingRoute = routeByToClientId.get(draftSlot.clientId());
-			if (incomingRoute != null) {
-				current = current.plusMinutes(incomingRoute.durationMinutes());
+			Integer incomingDuration = routeDurationByToClientId.get(draftSlot.clientId());
+			if (incomingDuration != null) {
+				current = current.plusMinutes(incomingDuration);
 			}
 			LocalDateTime startAt = current;
 			LocalDateTime endAt = startAt.plusMinutes(draftSlot.dwellMinutes());
@@ -147,22 +199,68 @@ public class ScheduleService {
 
 	private void saveRouteSegments(
 		Schedule schedule,
-		List<DraftRouteSegmentRequest> draftRouteSegments,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments,
 		Map<String, ScheduleSlot> savedSlots
 	) {
-		List<RouteSegment> routeSegments = draftRouteSegments.stream()
-			.map(draftRoute -> RouteSegment.create(
+		List<RouteSegment> routeSegments = resolvedRouteSegments.stream()
+			.map(resolvedRoute -> RouteSegment.create(
 				schedule,
-				requiredSlot(savedSlots, draftRoute.fromClientId()),
-				requiredSlot(savedSlots, draftRoute.toClientId()),
-				draftRoute.mode(),
-				null,
-				draftRoute.durationMinutes(),
-				"MANUAL",
-				true
+				requiredSlot(savedSlots, resolvedRoute.request().fromClientId()),
+				requiredSlot(savedSlots, resolvedRoute.request().toClientId()),
+				resolvedRoute.estimate().mode(),
+				resolvedRoute.estimate().distanceMeters(),
+				resolvedRoute.estimate().durationMinutes(),
+				resolvedRoute.estimate().taxiFareWon(),
+				resolvedRoute.estimate().tollFareWon(),
+				resolvedRoute.estimate().provider(),
+				resolvedRoute.estimate().manuallyAdjusted()
 			))
 			.toList();
 		routeSegmentRepository.saveAll(routeSegments);
+	}
+
+	private Map<String, DraftSlotRequest> draftSlotsByClientId(DraftScheduleRequest request) {
+		return request.slots().stream()
+			.collect(LinkedHashMap::new, (map, slot) -> map.put(slot.clientId(), slot), Map::putAll);
+	}
+
+	private List<ResolvedDraftRouteSegment> resolveRouteSegments(
+		List<DraftRouteSegmentRequest> draftRouteSegments,
+		Map<String, DraftSlotRequest> draftSlotsByClientId,
+		Map<Long, Place> placesById
+	) {
+		return draftRouteSegments.stream()
+			.map(route -> new ResolvedDraftRouteSegment(
+				route,
+				resolveRouteEstimate(route, draftSlotsByClientId, placesById)
+			))
+			.toList();
+	}
+
+	private RouteEstimate resolveRouteEstimate(
+		DraftRouteSegmentRequest route,
+		Map<String, DraftSlotRequest> draftSlotsByClientId,
+		Map<Long, Place> placesById
+	) {
+		if (Boolean.TRUE.equals(route.manuallyAdjusted())) {
+			return RouteEstimate.manual(route.mode(), route.durationMinutes());
+		}
+
+		DraftSlotRequest fromSlot = draftSlotsByClientId.get(route.fromClientId());
+		DraftSlotRequest toSlot = draftSlotsByClientId.get(route.toClientId());
+		Place fromPlace = placeOrNull(fromSlot, placesById);
+		Place toPlace = placeOrNull(toSlot, placesById);
+		if (fromPlace == null || toPlace == null) {
+			return RouteEstimate.unresolvedPlace(route.mode(), route.durationMinutes());
+		}
+		return routeEstimator.estimate(route.mode(), fromPlace, toPlace);
+	}
+
+	private Place placeOrNull(DraftSlotRequest draftSlot, Map<Long, Place> placesById) {
+		if (draftSlot == null || draftSlot.placeId() == null) {
+			return null;
+		}
+		return placesById.get(draftSlot.placeId());
 	}
 
 	private TimelineResponse toTimeline(Room room, Schedule schedule) {
@@ -261,5 +359,21 @@ public class ScheduleService {
 				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 			}
 		}
+	}
+
+	private record ResolvedDraftRouteSegment(
+		DraftRouteSegmentRequest request,
+		RouteEstimate estimate
+	) {
+
+		private DraftRouteSegmentResponse toResponse() {
+			return DraftRouteSegmentResponse.from(request, estimate);
+		}
+	}
+
+	private record DraftCalculationContext(
+		Map<String, DraftSlotRequest> draftSlotsByClientId,
+		Map<Long, Place> placesById
+	) {
 	}
 }

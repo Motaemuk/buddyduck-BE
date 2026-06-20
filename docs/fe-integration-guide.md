@@ -284,7 +284,39 @@ Authorization: Bearer <jwt>
 
 검색/지오코딩 결과는 후보 목록입니다. 사용자가 장소를 선택한 뒤에는 `POST /api/places`를 호출해서 `placeId`를 받아야 방 생성, 일정 저장 같은 API에 연결할 수 있습니다.
 
-## 9. 공연 검색 연동
+## 9. 일정 경로 계산 연동
+
+CB-11 일정 편집에서는 route segment마다 이동 수단과 수동 조정 여부를 함께 보냅니다.
+
+```json
+{
+  "fromClientId": "slot-meeting",
+  "toClientId": "slot-cafe",
+  "mode": "WALK",
+  "durationMinutes": 18,
+  "manuallyAdjusted": false
+}
+```
+
+`manuallyAdjusted=false` 또는 생략이면 BE가 장소 좌표를 기준으로 거리/시간을 다시 계산합니다. 사용자가 이동 시간을 직접 `+/-`로 조정한 상태라면 `manuallyAdjusted=true`로 보내고, 이때는 FE가 보낸 `durationMinutes`를 그대로 사용합니다.
+
+draft/timeline/map 응답의 route segment에는 아래 필드가 내려옵니다.
+
+```json
+{
+  "mode": "CAR_TAXI",
+  "distanceMeters": 1033,
+  "durationMinutes": 5,
+  "taxiFareWon": 3800,
+  "tollFareWon": 0,
+  "provider": "KAKAO_DRIVING",
+  "manuallyAdjusted": false
+}
+```
+
+`provider=DRIVING_DISTANCE_WALK_ESTIMATE`이면 도보 전용 API가 아니라 자동차 길찾기 거리 기반으로 도보 시간을 추정한 값입니다. `provider=FALLBACK_STRAIGHT_LINE`이면 Kakao Mobility 키가 꺼진 로컬/테스트 환경의 좌표 기반 추정값입니다. 더 자세한 계산 기준은 [일정 경로 계산 설계](schedule-route-planner.md)를 확인합니다.
+
+## 10. 공연 검색 연동
 
 공연 목록/상세 조회는 인증 없이 호출할 수 있습니다.
 
@@ -295,7 +327,7 @@ GET /api/concerts/{concertId}
 
 공연 데이터는 FE 요청마다 KOPIS를 직접 호출하지 않고, 백엔드 DB cache를 조회합니다. 운영/발표 전에는 백엔드에서 KOPIS 초기 적재를 한 번 실행해 둔 데이터를 사용합니다.
 
-## 10. 기본 점검 순서
+## 11. 기본 점검 순서
 
 FE 연동 시 아래 순서로 확인하면 원인을 좁히기 쉽습니다.
 
@@ -308,7 +340,7 @@ FE 연동 시 아래 순서로 확인하면 원인을 좁히기 쉽습니다.
 7. `profileCompleted=false`이면 `PATCH /api/users/me/profile`로 프로필을 완료합니다.
 8. 완료 후 방/장소/일정 같은 보호 API를 호출합니다.
 
-## 11. 자주 나는 문제
+## 12. 자주 나는 문제
 
 | 증상 | 확인할 것 |
 | --- | --- |

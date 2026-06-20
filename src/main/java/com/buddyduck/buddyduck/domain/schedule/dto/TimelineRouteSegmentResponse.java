@@ -10,6 +10,8 @@ public record TimelineRouteSegmentResponse(
 	RouteMode mode,
 	Integer distanceMeters,
 	Integer durationMinutes,
+	Integer taxiFareWon,
+	Integer tollFareWon,
 	String provider,
 	Boolean manuallyAdjusted
 ) {
@@ -22,6 +24,8 @@ public record TimelineRouteSegmentResponse(
 			routeSegment.getMode(),
 			routeSegment.getDistanceMeters(),
 			routeSegment.getDurationMinutes(),
+			routeSegment.getTaxiFareWon(),
+			routeSegment.getTollFareWon(),
 			routeSegment.getProvider(),
 			routeSegment.getManuallyAdjusted()
 		);

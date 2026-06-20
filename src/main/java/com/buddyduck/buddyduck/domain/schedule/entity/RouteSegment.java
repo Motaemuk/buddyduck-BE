@@ -58,6 +58,12 @@ public class RouteSegment extends BaseTimeEntity {
 	@Column(name = "duration_minutes", nullable = false)
 	private Integer durationMinutes;
 
+	@Column(name = "taxi_fare_won")
+	private Integer taxiFareWon;
+
+	@Column(name = "toll_fare_won")
+	private Integer tollFareWon;
+
 	@Column(length = 30)
 	private String provider;
 
@@ -71,6 +77,8 @@ public class RouteSegment extends BaseTimeEntity {
 		RouteMode mode,
 		Integer distanceMeters,
 		Integer durationMinutes,
+		Integer taxiFareWon,
+		Integer tollFareWon,
 		String provider,
 		Boolean manuallyAdjusted
 	) {
@@ -81,6 +89,8 @@ public class RouteSegment extends BaseTimeEntity {
 		routeSegment.mode = mode;
 		routeSegment.distanceMeters = distanceMeters;
 		routeSegment.durationMinutes = durationMinutes;
+		routeSegment.taxiFareWon = taxiFareWon;
+		routeSegment.tollFareWon = tollFareWon;
 		routeSegment.provider = provider;
 		routeSegment.manuallyAdjusted = manuallyAdjusted;
 		return routeSegment;

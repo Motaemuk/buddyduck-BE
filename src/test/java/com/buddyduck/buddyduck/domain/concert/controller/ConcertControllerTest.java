@@ -162,6 +162,32 @@ class ConcertControllerTest {
 	}
 
 	@Test
+	void 이미_저장된_관심_태그를_다시_저장해도_성공한다() throws Exception {
+		Long concertId = insertConcert("seed-save-same-tags", "AURORA LIVE", "KSPO Dome", LocalDateTime.of(2026, 6, 15, 19, 0));
+		User user = saveCompletedUser("duck_fan");
+		insertInterestTag(user.getId(), concertId, "GOODS_BUYING");
+		insertInterestTag(user.getId(), concertId, "CAFE_VISIT");
+
+		mockMvc.perform(put("/api/concerts/{concertId}/interest-tags/me", concertId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(user))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of(
+					"tags", new String[] {"GOODS_BUYING", "CAFE_VISIT"}
+				))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.tags[0]").value("GOODS_BUYING"))
+			.andExpect(jsonPath("$.result.tags[1]").value("CAFE_VISIT"));
+
+		Integer count = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM concert_interest_tags WHERE user_id = ? AND concert_id = ?",
+			Integer.class,
+			user.getId(),
+			concertId
+		);
+		assertThat(count).isEqualTo(2);
+	}
+
+	@Test
 	void 허용되지_않은_관심_태그는_400을_응답한다() throws Exception {
 		Long concertId = insertConcert("seed-invalid-tags", "AURORA LIVE", "KSPO Dome", LocalDateTime.of(2026, 6, 15, 19, 0));
 		User user = saveCompletedUser("duck_fan");

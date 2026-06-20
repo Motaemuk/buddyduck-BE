@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.Version;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -33,6 +34,12 @@ public class Schedule extends BaseTimeEntity {
 	@Column(name = "arrival_buffer_minutes", nullable = false)
 	private Integer arrivalBufferMinutes = 30;
 
+	@Column(name = "custom_start_at")
+	private LocalDateTime customStartAt;
+
+	@Column(name = "target_arrival_at")
+	private LocalDateTime targetArrivalAt;
+
 	@Version
 	@Column(nullable = false)
 	private Integer version;
@@ -46,5 +53,15 @@ public class Schedule extends BaseTimeEntity {
 
 	public void updateArrivalBufferMinutes(Integer arrivalBufferMinutes) {
 		this.arrivalBufferMinutes = arrivalBufferMinutes;
+	}
+
+	public void updatePlanningTimes(
+		Integer arrivalBufferMinutes,
+		LocalDateTime customStartAt,
+		LocalDateTime targetArrivalAt
+	) {
+		this.arrivalBufferMinutes = arrivalBufferMinutes;
+		this.customStartAt = customStartAt;
+		this.targetArrivalAt = targetArrivalAt;
 	}
 }

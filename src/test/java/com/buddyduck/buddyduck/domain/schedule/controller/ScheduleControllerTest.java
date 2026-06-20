@@ -145,6 +145,30 @@ class ScheduleControllerTest {
 	}
 
 	@Test
+	void draft_preview는_권장_시작_시간과_사용자_시작_시간_기준_초과를_반환한다() throws Exception {
+		ObjectNode payload = draftPayloadWithPlanningTimes(
+			"2026-06-15T14:20:00+09:00",
+			"2026-06-15T15:00:00+09:00"
+		);
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.fitStatus").value("OVERRUN"))
+			.andExpect(jsonPath("$.result.recommendedStartAt").value("2026-06-15T14:02:00+09:00"))
+			.andExpect(jsonPath("$.result.effectiveStartAt").value("2026-06-15T14:20:00+09:00"))
+			.andExpect(jsonPath("$.result.targetArrivalAt").value("2026-06-15T15:00:00+09:00"))
+			.andExpect(jsonPath("$.result.overrunMinutes").value(18))
+			.andExpect(jsonPath("$.result.spareMinutes").value(0))
+			.andExpect(jsonPath("$.result.slots[0].startAt").value("2026-06-15T14:20:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[0].endAt").value("2026-06-15T14:30:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T14:48:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].endAt").value("2026-06-15T15:18:00+09:00"));
+	}
+
+	@Test
 	void draft_commit은_슬롯과_이동구간을_DB에_저장한다() throws Exception {
 		mockMvc.perform(put("/api/schedules/{scheduleId}/draft/commit", scheduleId)
 				.header(HttpHeaders.AUTHORIZATION, bearer(host))
@@ -173,6 +197,27 @@ class ScheduleControllerTest {
 		);
 		assertThat(slotCount).isEqualTo(2);
 		assertThat(routeCount).isEqualTo(1);
+	}
+
+	@Test
+	void draft_commit은_사용자_시작_시간을_저장하고_타임라인에_반영한다() throws Exception {
+		ObjectNode payload = draftPayloadWithPlanningTimes(
+			"2026-06-15T13:30:00+09:00",
+			"2026-06-15T15:00:00+09:00"
+		);
+
+		mockMvc.perform(put("/api/schedules/{scheduleId}/draft/commit", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.schedule.customStartAt").value("2026-06-15T13:30:00+09:00"))
+			.andExpect(jsonPath("$.result.schedule.targetArrivalAt").value("2026-06-15T15:00:00+09:00"))
+			.andExpect(jsonPath("$.result.schedule.recommendedStartAt").value("2026-06-15T14:02:00+09:00"))
+			.andExpect(jsonPath("$.result.schedule.spareMinutes").value(32))
+			.andExpect(jsonPath("$.result.schedule.overrunMinutes").value(0))
+			.andExpect(jsonPath("$.result.slots[0].startAt").value("2026-06-15T13:30:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T13:58:00+09:00"));
 	}
 
 	@Test
@@ -258,6 +303,15 @@ class ScheduleControllerTest {
 				)
 			)
 		);
+	}
+
+	private ObjectNode draftPayloadWithPlanningTimes(String customStartAt, String targetArrivalAt) {
+		ObjectNode payload = objectMapper.valueToTree(draftPayload());
+		payload.put("customStartAt", customStartAt);
+		payload.put("targetArrivalAt", targetArrivalAt);
+		ArrayNode routeSegments = (ArrayNode) payload.path("routeSegments");
+		((ObjectNode) routeSegments.get(0)).put("manuallyAdjusted", true);
+		return payload;
 	}
 
 	private void commitDraft() throws Exception {

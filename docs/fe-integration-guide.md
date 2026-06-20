@@ -351,6 +351,33 @@ CB-11 일정 편집에서는 시작/도착 기준도 함께 보냅니다.
 
 `POST /api/schedules/{scheduleId}/draft/recalculate` 응답의 `slots`에는 계산된 `startAt`, `endAt`이 포함됩니다. FE는 장소 추가, 삭제, 순서 변경, 머무는 시간 변경, 이동수단 변경, 시작/도착 기준 변경 후 draft 요청을 보내고 이 값을 화면에 반영하면 됩니다.
 
+추천 순서 버튼을 누를 때는 `POST /api/schedules/{scheduleId}/draft/recommend`를 호출합니다. 이 API는 저장하지 않고 추천된 순서와 이동구간을 preview로 내려줍니다.
+
+```json
+{
+  "customStartAt": "2026-06-15T14:00:00+09:00",
+  "targetArrivalAt": "2026-06-15T18:30:00+09:00",
+  "arrivalBufferMinutes": 30,
+  "recommendationMode": "WALK",
+  "slots": [
+    {
+      "clientId": "slot-meeting",
+      "order": 1,
+      "title": "잠실역 5번 출구",
+      "placeId": 10,
+      "dwellMinutes": 15,
+      "locked": true,
+      "slotType": "MEETING",
+      "category": "MEETING"
+    }
+  ]
+}
+```
+
+`draft/recommend`에는 `routeSegments`를 보내지 않습니다. BE가 `recommendationMode` 기준으로 새 이동구간을 만들어 응답합니다. FE는 응답의 `slots`, `routeSegments`를 CB-11 화면 상태에 반영하고, 사용자가 수정 완료를 누르면 기존처럼 `PUT /api/schedules/{scheduleId}/draft/commit`을 호출하면 됩니다.
+
+첫 번째 슬롯은 시작점으로 고정됩니다. `locked=true` 슬롯도 현재 위치에 고정되므로, 공연장 도착 블록처럼 움직이면 안 되는 블록에 사용하면 됩니다. 추천 계산은 모든 슬롯에 `placeId`가 있어야 하며, 장소가 없는 임시 입력 슬롯이 있으면 먼저 장소 선택을 완료한 뒤 호출해야 합니다.
+
 CB-11 일정 편집에서는 route segment마다 이동 수단과 수동 조정 여부를 함께 보냅니다.
 
 ```json

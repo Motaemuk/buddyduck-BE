@@ -13,11 +13,11 @@
 7. 저장 가능한 상태라면 사용자가 수정 완료를 누르고, BE는 사용자 시작 시간과 계산된 route segment를 DB에 저장한다.
 8. CB-12 지도 화면은 저장된 슬롯 순서와 route segment를 읽어서 핀, 선, 하단 장소 정보를 보여준다.
 
-이번 구현은 4~7번의 "이동 구간 계산과 권장 시작 시간 계산"을 실제 API/fallback 기반으로 만든다. 장소 추천 순서를 자동으로 바꾸는 기능은 이 계산기를 이용해 별도 브랜치에서 추가하는 것이 안전하다.
+이번 구현은 4~7번의 "이동 구간 계산과 권장 시작 시간 계산"을 실제 API/fallback 기반으로 만든다. 사용자가 추천 순서를 요청하면 BE는 같은 계산기를 이용해 저장 전 draft preview를 다시 내려준다.
 
 ## 2. 현재 구현 범위
 
-`POST /api/schedules/{scheduleId}/draft/recalculate`와 `PUT /api/schedules/{scheduleId}/draft/commit`에서 route segment를 계산한다.
+`POST /api/schedules/{scheduleId}/draft/recalculate`, `POST /api/schedules/{scheduleId}/draft/recommend`, `PUT /api/schedules/{scheduleId}/draft/commit`에서 route segment를 계산한다.
 
 - `customStartAt`: 사용자가 확정한 실제 일정 시작 시간이다. 없으면 기존 schedule 값, 그것도 없으면 방의 `meetingAt`을 사용한다.
 - `targetArrivalAt`: 공연장 도착 목표 시간이다. 없으면 공연 시작 시간에서 `arrivalBufferMinutes`를 뺀 값을 사용한다.
@@ -28,6 +28,51 @@
 - Kakao Mobility 호출이 비활성화된 로컬/테스트 환경에서는 좌표 직선거리 기반 fallback 값을 사용한다.
 - Kakao Mobility가 활성화된 상태에서 외부 API 호출이 실패하면 fallback으로 숨기지 않고 `SCHEDULE_ROUTE_ESTIMATION_FAILED` 에러를 반환한다.
 - 장소 좌표가 없는 route segment는 기존 호환성을 위해 FE 입력 시간을 유지하되, 사용자가 직접 조정한 값과 구분되도록 `UNRESOLVED_PLACE`로 처리한다.
+
+### 추천 순서 API
+
+`POST /api/schedules/{scheduleId}/draft/recommend`는 사용자가 CB-11에서 "추천 순서"를 눌렀을 때 호출한다. 이 API는 DB에 저장하지 않고, 추천된 슬롯 순서와 자동 생성된 route segment를 포함한 draft preview만 반환한다. 사용자가 추천 결과를 받아들이면 FE는 응답의 `slots`, `routeSegments`를 화면 상태에 반영하고, 최종 저장 시 기존 `PUT /api/schedules/{scheduleId}/draft/commit`을 호출한다.
+
+요청에는 `routeSegments`를 보내지 않는다. BE가 `recommendationMode` 기준으로 새 route segment를 생성한다.
+
+```json
+{
+  "customStartAt": "2026-06-15T14:00:00+09:00",
+  "targetArrivalAt": "2026-06-15T18:30:00+09:00",
+  "arrivalBufferMinutes": 30,
+  "recommendationMode": "WALK",
+  "slots": [
+    {
+      "clientId": "slot-meeting",
+      "order": 1,
+      "title": "잠실역 5번 출구",
+      "placeId": 10,
+      "dwellMinutes": 15,
+      "locked": true,
+      "slotType": "MEETING",
+      "category": "MEETING"
+    },
+    {
+      "clientId": "slot-cafe",
+      "order": 2,
+      "title": "잠실 카페 mood",
+      "placeId": 11,
+      "dwellMinutes": 60,
+      "locked": false,
+      "slotType": "PLACE",
+      "category": "CAFE_VISIT"
+    }
+  ]
+}
+```
+
+- `recommendationMode`: 추천 순서를 계산할 기준 이동수단이다. `WALK`, `CAR_TAXI` 중 하나를 보낸다.
+- 첫 번째 슬롯은 시작점으로 고정한다.
+- `locked=true`인 슬롯은 현재 위치에 고정한다. 공연장 도착 블록처럼 움직이면 안 되는 블록에 사용한다.
+- 나머지 슬롯은 이동시간 합이 가장 작아지도록 재배열한다.
+- 이동 가능한 슬롯이 7개 이하이면 가능한 순서를 모두 비교하고, 8개 이상이면 nearest-neighbor 휴리스틱으로 계산한다.
+- 추천 계산은 모든 슬롯에 `placeId`가 있어야 한다. 장소가 없는 슬롯이 있으면 `400 BAD_REQUEST`를 반환한다.
+- 응답 형식은 `draft/recalculate`와 같다.
 
 ## 3. 외부 API 사용 방식
 
@@ -203,14 +248,15 @@ KAKAO_MOBILITY_REST_API_KEY=<카카오 REST API 키>
 
 현재 애플리케이션 설정은 `KAKAO_MOBILITY_REST_API_KEY`가 없으면 `KAKAO_LOCAL_REST_API_KEY`를 fallback으로 사용한다. OAuth `KAKAO_CLIENT_ID`는 Mobility API 인증키와 계약이 다르므로 fallback으로 사용하지 않는다.
 
-## 8. 다음 단계
+## 8. 남은 확장 여지
 
-이번 구현은 "구간별 이동 비용 계산"까지다. 추천 순서 기능은 이 계산기를 기반으로 다음 순서로 확장한다.
+현재 추천 순서는 이동시간 합이 가장 짧은 순서를 찾는 데 집중한다. 장소 수가 적은 MVP에서는 완전 탐색이 단순하고 설명 가능하며, 장소 수가 많아지면 nearest-neighbor 휴리스틱으로 응답 시간을 지킨다.
 
-1. 슬롯 후보들의 모든 순서 또는 일부 후보 순서를 만든다.
-2. 각 순서의 route segment 비용을 계산한다.
-3. 전체 소요 시간이 가장 짧거나, 공연 전 여유 시간을 가장 잘 만족하는 순서를 추천한다.
-4. 추천 결과는 바로 저장하지 않고 CB-11 draft preview로 내려준다.
-5. 사용자는 추천 순서를 받아들이거나 직접 다시 순서를 바꿀 수 있다.
+이후 더 정교하게 만들 수 있는 부분은 아래와 같다.
 
-장소 수가 적은 MVP에서는 완전 탐색이 단순하고 설명 가능하다. 장소 수가 많아지면 nearest-neighbor, 2-opt 같은 휴리스틱을 추가한다. AI는 최적 경로 계산의 주체로 쓰기보다, "왜 시간이 초과됐는지", "어떤 장소를 줄이거나 택시로 바꾸면 되는지"를 설명하는 보조 역할이 적합하다.
+1. `WALK`와 `CAR_TAXI`를 섞어서 추천하는 혼합 이동수단 추천.
+2. 장소별 영업시간, 대기시간, 공연장 입장 마감 같은 시간 제약 반영.
+3. 이동시간뿐 아니라 사용자의 관심 태그, 선호 장소, 비용까지 고려한 가중치 추천.
+4. 초과 시간이 발생했을 때 "어떤 장소를 줄이거나 택시로 바꾸면 되는지"를 설명하는 보조 메시지.
+
+AI는 최적 경로 계산의 주체로 쓰기보다, 계산 결과를 사람이 이해하기 쉽게 설명하거나 대안을 요약하는 보조 역할이 적합하다.

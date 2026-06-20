@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.schedule.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -145,6 +146,51 @@ class ScheduleControllerTest {
 	}
 
 	@Test
+	void draft_preview는_인접하지_않은_이동구간을_400으로_응답한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(draftPayloadWithThreeSlots());
+		ArrayNode routeSegments = (ArrayNode) payload.path("routeSegments");
+		routeSegments.remove(0);
+		routeSegments.insertPOJO(0, Map.of(
+			"fromClientId", "slot-meeting",
+			"toClientId", "slot-shop",
+			"mode", "WALK",
+			"durationMinutes", 5
+		));
+		((ObjectNode) routeSegments.get(1)).put("fromClientId", "slot-shop");
+		((ObjectNode) routeSegments.get(1)).put("toClientId", "slot-cafe");
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void draft_preview는_권장_시작_시간과_사용자_시작_시간_기준_초과를_반환한다() throws Exception {
+		ObjectNode payload = draftPayloadWithPlanningTimes(
+			"2026-06-15T14:20:00+09:00",
+			"2026-06-15T15:00:00+09:00"
+		);
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.fitStatus").value("OVERRUN"))
+			.andExpect(jsonPath("$.result.recommendedStartAt").value("2026-06-15T14:02:00+09:00"))
+			.andExpect(jsonPath("$.result.effectiveStartAt").value("2026-06-15T14:20:00+09:00"))
+			.andExpect(jsonPath("$.result.targetArrivalAt").value("2026-06-15T15:00:00+09:00"))
+			.andExpect(jsonPath("$.result.overrunMinutes").value(18))
+			.andExpect(jsonPath("$.result.spareMinutes").value(0))
+			.andExpect(jsonPath("$.result.slots[0].startAt").value("2026-06-15T14:20:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[0].endAt").value("2026-06-15T14:30:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T14:48:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].endAt").value("2026-06-15T15:18:00+09:00"));
+	}
+
+	@Test
 	void draft_commit은_슬롯과_이동구간을_DB에_저장한다() throws Exception {
 		mockMvc.perform(put("/api/schedules/{scheduleId}/draft/commit", scheduleId)
 				.header(HttpHeaders.AUTHORIZATION, bearer(host))
@@ -153,6 +199,7 @@ class ScheduleControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.result.room.id").value(roomId))
 			.andExpect(jsonPath("$.result.schedule.id").value(scheduleId))
+			.andExpect(jsonPath("$.result.schedule.customStartAt").value(nullValue()))
 			.andExpect(jsonPath("$.result.slots[0].title").value("잠실역 5번 출구"))
 			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T14:16:00+09:00"))
 			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"))
@@ -173,6 +220,33 @@ class ScheduleControllerTest {
 		);
 		assertThat(slotCount).isEqualTo(2);
 		assertThat(routeCount).isEqualTo(1);
+		LocalDateTime storedCustomStartAt = jdbcTemplate.queryForObject(
+			"SELECT custom_start_at FROM schedules WHERE id = ?",
+			LocalDateTime.class,
+			scheduleId
+		);
+		assertThat(storedCustomStartAt).isNull();
+	}
+
+	@Test
+	void draft_commit은_사용자_시작_시간을_저장하고_타임라인에_반영한다() throws Exception {
+		ObjectNode payload = draftPayloadWithPlanningTimes(
+			"2026-06-15T13:30:00+09:00",
+			"2026-06-15T15:00:00+09:00"
+		);
+
+		mockMvc.perform(put("/api/schedules/{scheduleId}/draft/commit", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.schedule.customStartAt").value("2026-06-15T13:30:00+09:00"))
+			.andExpect(jsonPath("$.result.schedule.targetArrivalAt").value("2026-06-15T15:00:00+09:00"))
+			.andExpect(jsonPath("$.result.schedule.recommendedStartAt").value("2026-06-15T14:02:00+09:00"))
+			.andExpect(jsonPath("$.result.schedule.spareMinutes").value(32))
+			.andExpect(jsonPath("$.result.schedule.overrunMinutes").value(0))
+			.andExpect(jsonPath("$.result.slots[0].startAt").value("2026-06-15T13:30:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T13:58:00+09:00"));
 	}
 
 	@Test
@@ -258,6 +332,67 @@ class ScheduleControllerTest {
 				)
 			)
 		);
+	}
+
+	private Map<String, Object> draftPayloadWithThreeSlots() {
+		return Map.of(
+			"arrivalBufferMinutes", 30,
+			"slots", List.of(
+				Map.of(
+					"clientId", "slot-meeting",
+					"order", 1,
+					"title", "잠실역 5번 출구",
+					"placeId", meetingPlaceId,
+					"dwellMinutes", 10,
+					"locked", false,
+					"slotType", "MEETING",
+					"category", "MEETING"
+				),
+				Map.of(
+					"clientId", "slot-cafe",
+					"order", 2,
+					"title", "잠실 카페 무드",
+					"placeId", cafePlaceId,
+					"dwellMinutes", 30,
+					"locked", false,
+					"slotType", "PLACE",
+					"category", "CAFE_VISIT"
+				),
+				Map.of(
+					"clientId", "slot-shop",
+					"order", 3,
+					"title", "굿즈샵",
+					"placeId", meetingPlaceId,
+					"dwellMinutes", 20,
+					"locked", false,
+					"slotType", "PLACE",
+					"category", "GOODS_BUYING"
+				)
+			),
+			"routeSegments", List.of(
+				Map.of(
+					"fromClientId", "slot-meeting",
+					"toClientId", "slot-cafe",
+					"mode", "WALK",
+					"durationMinutes", 18
+				),
+				Map.of(
+					"fromClientId", "slot-cafe",
+					"toClientId", "slot-shop",
+					"mode", "WALK",
+					"durationMinutes", 12
+				)
+			)
+		);
+	}
+
+	private ObjectNode draftPayloadWithPlanningTimes(String customStartAt, String targetArrivalAt) {
+		ObjectNode payload = objectMapper.valueToTree(draftPayload());
+		payload.put("customStartAt", customStartAt);
+		payload.put("targetArrivalAt", targetArrivalAt);
+		ArrayNode routeSegments = (ArrayNode) payload.path("routeSegments");
+		((ObjectNode) routeSegments.get(0)).put("manuallyAdjusted", true);
+		return payload;
 	}
 
 	private void commitDraft() throws Exception {

@@ -13,6 +13,7 @@ import com.buddyduck.buddyduck.domain.schedule.dto.DraftSlotRequest;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftSlotResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.MapBoundsResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.MapPointResponse;
+import com.buddyduck.buddyduck.domain.schedule.dto.ScheduleDateTimeFormatter;
 import com.buddyduck.buddyduck.domain.schedule.dto.ScheduleMapResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.TimelineResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.TimelineRoomResponse;
@@ -32,7 +33,11 @@ import com.buddyduck.buddyduck.domain.schedule.route.RouteEstimator;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -52,6 +57,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 public class ScheduleService {
 
 	private static final String TIMEZONE = "Asia/Seoul";
+	private static final ZoneId SEOUL_ZONE = ZoneId.of(TIMEZONE);
 
 	private final ScheduleRepository scheduleRepository;
 	private final ScheduleSlotRepository scheduleSlotRepository;
@@ -87,11 +93,16 @@ public class ScheduleService {
 			context.draftSlotsByClientId(),
 			context.placesById()
 		);
+		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), request, resolvedRouteSegments);
 
 		return new DraftScheduleResponse(
-			"OK",
-			0,
-			request.slots().stream().map(DraftSlotResponse::from).toList(),
+			draftTimeline.fitStatus(),
+			ScheduleDateTimeFormatter.format(draftTimeline.recommendedStartAt()),
+			ScheduleDateTimeFormatter.format(draftTimeline.effectiveStartAt()),
+			ScheduleDateTimeFormatter.format(draftTimeline.targetArrivalAt()),
+			draftTimeline.overrunMinutes(),
+			draftTimeline.spareMinutes(),
+			draftTimeline.slots().stream().map(ResolvedDraftSlot::toResponse).toList(),
 			resolvedRouteSegments.stream().map(ResolvedDraftRouteSegment::toResponse).toList(),
 			List.of()
 		);
@@ -104,11 +115,13 @@ public class ScheduleService {
 			context.draftSlotsByClientId(),
 			context.placesById()
 		);
+		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), request, resolvedRouteSegments);
 
 		return Objects.requireNonNull(transactionTemplate.execute(status -> saveDraft(
 			scheduleId,
 			userId,
 			request,
+			draftTimeline,
 			resolvedRouteSegments
 		)));
 	}
@@ -123,6 +136,7 @@ public class ScheduleService {
 			requireRoomAccess(schedule.getRoom(), userId);
 			validateDraft(request);
 			return new DraftCalculationContext(
+				schedule,
 				draftSlotsByClientId(request),
 				findPlacesById(request.slots())
 			);
@@ -133,6 +147,7 @@ public class ScheduleService {
 		Long scheduleId,
 		Long userId,
 		DraftScheduleRequest request,
+		DraftTimeline draftTimeline,
 		List<ResolvedDraftRouteSegment> resolvedRouteSegments
 	) {
 		Schedule schedule = getScheduleOrThrow(scheduleId);
@@ -144,9 +159,13 @@ public class ScheduleService {
 		routeSegmentRepository.flush();
 		scheduleSlotRepository.deleteAllByScheduleId(scheduleId);
 		scheduleSlotRepository.flush();
-		schedule.updateArrivalBufferMinutes(request.arrivalBufferMinutes());
+		schedule.updatePlanningTimes(
+			request.arrivalBufferMinutes(),
+			customStartAtToPersist(schedule, request),
+			targetArrivalAtToPersist(schedule, request)
+		);
 
-		Map<String, ScheduleSlot> savedSlots = saveSlots(schedule, request, placesById, resolvedRouteSegments);
+		Map<String, ScheduleSlot> savedSlots = saveSlots(schedule, placesById, draftTimeline.slots());
 		saveRouteSegments(schedule, resolvedRouteSegments, savedSlots);
 
 		return toTimeline(schedule.getRoom(), schedule);
@@ -154,29 +173,12 @@ public class ScheduleService {
 
 	private Map<String, ScheduleSlot> saveSlots(
 		Schedule schedule,
-		DraftScheduleRequest request,
 		Map<Long, Place> placesById,
-		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+		List<ResolvedDraftSlot> resolvedSlots
 	) {
-		List<DraftSlotRequest> sortedSlots = request.slots().stream()
-			.sorted(Comparator.comparing(DraftSlotRequest::order))
-			.toList();
-		Map<String, Integer> routeDurationByToClientId = resolvedRouteSegments.stream()
-			.collect(
-				LinkedHashMap::new,
-				(map, route) -> map.put(route.request().toClientId(), route.estimate().durationMinutes()),
-				Map::putAll
-			);
 		Map<String, ScheduleSlot> savedSlots = new LinkedHashMap<>();
-		LocalDateTime current = schedule.getRoom().getMeetingAt();
-
-		for (DraftSlotRequest draftSlot : sortedSlots) {
-			Integer incomingDuration = routeDurationByToClientId.get(draftSlot.clientId());
-			if (incomingDuration != null) {
-				current = current.plusMinutes(incomingDuration);
-			}
-			LocalDateTime startAt = current;
-			LocalDateTime endAt = startAt.plusMinutes(draftSlot.dwellMinutes());
+		for (ResolvedDraftSlot resolvedSlot : resolvedSlots) {
+			DraftSlotRequest draftSlot = resolvedSlot.request();
 			Place place = draftSlot.placeId() == null ? null : placesById.get(draftSlot.placeId());
 			ScheduleSlot savedSlot = scheduleSlotRepository.save(ScheduleSlot.create(
 				schedule,
@@ -185,13 +187,12 @@ public class ScheduleService {
 				draftSlot.category() == null ? SlotCategory.ETC : draftSlot.category(),
 				draftSlot.title(),
 				draftSlot.order(),
-				startAt,
-				endAt,
+				resolvedSlot.startAt(),
+				resolvedSlot.endAt(),
 				draftSlot.dwellMinutes(),
 				Boolean.TRUE.equals(draftSlot.locked())
 			));
 			savedSlots.put(draftSlot.clientId(), savedSlot);
-			current = endAt;
 		}
 
 		return savedSlots;
@@ -256,6 +257,126 @@ public class ScheduleService {
 		return routeEstimator.estimate(route.mode(), fromPlace, toPlace);
 	}
 
+	private DraftTimeline buildDraftTimeline(
+		Schedule schedule,
+		DraftScheduleRequest request,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+	) {
+		LocalDateTime targetArrivalAt = resolveTargetArrivalAt(schedule, request);
+		Integer totalDurationMinutes = totalDurationMinutes(request, resolvedRouteSegments);
+		LocalDateTime recommendedStartAt = targetArrivalAt.minusMinutes(totalDurationMinutes);
+		LocalDateTime effectiveStartAt = resolveEffectiveStartAt(schedule, request);
+		List<ResolvedDraftSlot> slots = resolveDraftSlots(request, resolvedRouteSegments, effectiveStartAt);
+		LocalDateTime endAt = slots.isEmpty() ? effectiveStartAt : slots.get(slots.size() - 1).endAt();
+		Long spare = Duration.between(endAt, targetArrivalAt).toMinutes();
+		Integer spareMinutes = Math.toIntExact(Math.max(0, spare));
+		Integer overrunMinutes = Math.toIntExact(Math.max(0, -spare));
+
+		return new DraftTimeline(
+			overrunMinutes > 0 ? "OVERRUN" : "OK",
+			recommendedStartAt,
+			effectiveStartAt,
+			targetArrivalAt,
+			overrunMinutes,
+			spareMinutes,
+			slots
+		);
+	}
+
+	private List<ResolvedDraftSlot> resolveDraftSlots(
+		DraftScheduleRequest request,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments,
+		LocalDateTime effectiveStartAt
+	) {
+		List<DraftSlotRequest> sortedSlots = request.slots().stream()
+			.sorted(Comparator.comparing(DraftSlotRequest::order))
+			.toList();
+		Map<RouteEdge, Integer> routeDurationByEdge = routeDurationByEdge(resolvedRouteSegments);
+		List<ResolvedDraftSlot> resolvedSlots = new ArrayList<>();
+		LocalDateTime current = effectiveStartAt;
+
+		for (int index = 0; index < sortedSlots.size(); index++) {
+			DraftSlotRequest draftSlot = sortedSlots.get(index);
+			if (index > 0) {
+				RouteEdge edge = new RouteEdge(sortedSlots.get(index - 1).clientId(), draftSlot.clientId());
+				Integer incomingDuration = routeDurationByEdge.get(edge);
+				if (incomingDuration == null) {
+					throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+				}
+				current = current.plusMinutes(incomingDuration);
+			}
+			LocalDateTime startAt = current;
+			LocalDateTime endAt = startAt.plusMinutes(draftSlot.dwellMinutes());
+			resolvedSlots.add(new ResolvedDraftSlot(draftSlot, startAt, endAt));
+			current = endAt;
+		}
+
+		return resolvedSlots;
+	}
+
+	private Integer totalDurationMinutes(
+		DraftScheduleRequest request,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+	) {
+		Integer dwellMinutes = request.slots().stream()
+			.map(DraftSlotRequest::dwellMinutes)
+			.reduce(0, Integer::sum);
+		Integer routeMinutes = resolvedRouteSegments.stream()
+			.map(route -> route.estimate().durationMinutes())
+			.reduce(0, Integer::sum);
+		return dwellMinutes + routeMinutes;
+	}
+
+	private Map<RouteEdge, Integer> routeDurationByEdge(List<ResolvedDraftRouteSegment> resolvedRouteSegments) {
+		return resolvedRouteSegments.stream()
+			.collect(
+				LinkedHashMap::new,
+				(map, route) -> map.put(
+					new RouteEdge(route.request().fromClientId(), route.request().toClientId()),
+					route.estimate().durationMinutes()
+				),
+				Map::putAll
+			);
+	}
+
+	private LocalDateTime customStartAtToPersist(Schedule schedule, DraftScheduleRequest request) {
+		if (request.customStartAt() != null) {
+			return toSeoulLocalDateTime(request.customStartAt());
+		}
+		return schedule.getCustomStartAt();
+	}
+
+	private LocalDateTime targetArrivalAtToPersist(Schedule schedule, DraftScheduleRequest request) {
+		if (request.targetArrivalAt() != null) {
+			return toSeoulLocalDateTime(request.targetArrivalAt());
+		}
+		return schedule.getTargetArrivalAt();
+	}
+
+	private LocalDateTime resolveEffectiveStartAt(Schedule schedule, DraftScheduleRequest request) {
+		if (request.customStartAt() != null) {
+			return toSeoulLocalDateTime(request.customStartAt());
+		}
+		if (schedule.getCustomStartAt() != null) {
+			return schedule.getCustomStartAt();
+		}
+		return schedule.getRoom().getMeetingAt();
+	}
+
+	private LocalDateTime resolveTargetArrivalAt(Schedule schedule, DraftScheduleRequest request) {
+		if (request.targetArrivalAt() != null) {
+			return toSeoulLocalDateTime(request.targetArrivalAt());
+		}
+		if (schedule.getTargetArrivalAt() != null) {
+			return schedule.getTargetArrivalAt();
+		}
+		return schedule.getRoom().getConcert().getStartAt().minusMinutes(request.arrivalBufferMinutes());
+	}
+
+	private LocalDateTime toSeoulLocalDateTime(OffsetDateTime value) {
+		return value.atZoneSameInstant(SEOUL_ZONE).toLocalDateTime();
+	}
+
 	private Place placeOrNull(DraftSlotRequest draftSlot, Map<Long, Place> placesById) {
 		if (draftSlot == null || draftSlot.placeId() == null) {
 			return null;
@@ -264,22 +385,61 @@ public class ScheduleService {
 	}
 
 	private TimelineResponse toTimeline(Room room, Schedule schedule) {
-		List<TimelineSlotResponse> slots = scheduleSlotRepository.findAllByScheduleIdOrderBySortOrderAsc(schedule.getId())
-			.stream()
-			.map(TimelineSlotResponse::from)
-			.toList();
-		List<TimelineRouteSegmentResponse> routeSegments = routeSegmentRepository
-			.findAllByScheduleIdOrderByIdAsc(schedule.getId())
-			.stream()
+		List<ScheduleSlot> savedSlots = scheduleSlotRepository.findAllByScheduleIdOrderBySortOrderAsc(schedule.getId());
+		List<RouteSegment> savedRouteSegments = routeSegmentRepository.findAllByScheduleIdOrderByIdAsc(schedule.getId());
+		List<TimelineSlotResponse> slots = savedSlots.stream().map(TimelineSlotResponse::from).toList();
+		List<TimelineRouteSegmentResponse> routeSegments = savedRouteSegments.stream()
 			.map(TimelineRouteSegmentResponse::from)
 			.toList();
+		TimelinePlanningSummary planningSummary = summarizeTimeline(schedule, savedSlots, savedRouteSegments);
 
 		return new TimelineResponse(
 			new TimelineRoomResponse(room.getId(), room.getTitle()),
-			new TimelineScheduleResponse(schedule.getId(), schedule.getArrivalBufferMinutes(), TIMEZONE),
+			new TimelineScheduleResponse(
+				schedule.getId(),
+				schedule.getArrivalBufferMinutes(),
+				TIMEZONE,
+				ScheduleDateTimeFormatter.format(schedule.getCustomStartAt()),
+				ScheduleDateTimeFormatter.format(planningSummary.targetArrivalAt()),
+				ScheduleDateTimeFormatter.format(planningSummary.recommendedStartAt()),
+				planningSummary.overrunMinutes(),
+				planningSummary.spareMinutes()
+			),
 			slots,
 			routeSegments,
 			List.of()
+		);
+	}
+
+	private TimelinePlanningSummary summarizeTimeline(
+		Schedule schedule,
+		List<ScheduleSlot> slots,
+		List<RouteSegment> routeSegments
+	) {
+		LocalDateTime targetArrivalAt = schedule.getTargetArrivalAt() == null
+			? schedule.getRoom().getConcert().getStartAt().minusMinutes(schedule.getArrivalBufferMinutes())
+			: schedule.getTargetArrivalAt();
+		Integer totalDurationMinutes = slots.stream()
+			.map(ScheduleSlot::getDwellMinutes)
+			.reduce(0, Integer::sum)
+			+ routeSegments.stream()
+			.map(RouteSegment::getDurationMinutes)
+			.reduce(0, Integer::sum);
+		LocalDateTime recommendedStartAt = targetArrivalAt.minusMinutes(totalDurationMinutes);
+		LocalDateTime effectiveStartAt = schedule.getCustomStartAt() == null
+			? slots.stream().findFirst().map(ScheduleSlot::getStartAt).orElse(schedule.getRoom().getMeetingAt())
+			: schedule.getCustomStartAt();
+		LocalDateTime endAt = slots.isEmpty()
+			? effectiveStartAt
+			: slots.get(slots.size() - 1).getEndAt();
+		Long spare = Duration.between(endAt, targetArrivalAt).toMinutes();
+
+		return new TimelinePlanningSummary(
+			recommendedStartAt,
+			effectiveStartAt,
+			targetArrivalAt,
+			Math.toIntExact(Math.max(0, -spare)),
+			Math.toIntExact(Math.max(0, spare))
 		);
 	}
 
@@ -350,12 +510,30 @@ public class ScheduleService {
 			}
 		}
 
-		Set<String> routeToClientIds = new HashSet<>();
+		List<DraftSlotRequest> sortedSlots = request.slots().stream()
+			.sorted(Comparator.comparing(DraftSlotRequest::order))
+			.toList();
+		if (request.routeSegments().size() != Math.max(0, sortedSlots.size() - 1)) {
+			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		}
+
+		Set<RouteEdge> routeEdges = new HashSet<>();
 		for (DraftRouteSegmentRequest route : request.routeSegments()) {
+			RouteEdge routeEdge = new RouteEdge(route.fromClientId(), route.toClientId());
 			if (Objects.equals(route.fromClientId(), route.toClientId())
 				|| !slotClientIds.contains(route.fromClientId())
 				|| !slotClientIds.contains(route.toClientId())
-				|| !routeToClientIds.add(route.toClientId())) {
+				|| !routeEdges.add(routeEdge)) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
+		}
+
+		for (int index = 1; index < sortedSlots.size(); index++) {
+			RouteEdge expectedEdge = new RouteEdge(
+				sortedSlots.get(index - 1).clientId(),
+				sortedSlots.get(index).clientId()
+			);
+			if (!routeEdges.contains(expectedEdge)) {
 				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 			}
 		}
@@ -371,7 +549,45 @@ public class ScheduleService {
 		}
 	}
 
+	private record ResolvedDraftSlot(
+		DraftSlotRequest request,
+		LocalDateTime startAt,
+		LocalDateTime endAt
+	) {
+
+		private DraftSlotResponse toResponse() {
+			return DraftSlotResponse.from(request, startAt, endAt);
+		}
+	}
+
+	private record DraftTimeline(
+		String fitStatus,
+		LocalDateTime recommendedStartAt,
+		LocalDateTime effectiveStartAt,
+		LocalDateTime targetArrivalAt,
+		Integer overrunMinutes,
+		Integer spareMinutes,
+		List<ResolvedDraftSlot> slots
+	) {
+	}
+
+	private record TimelinePlanningSummary(
+		LocalDateTime recommendedStartAt,
+		LocalDateTime effectiveStartAt,
+		LocalDateTime targetArrivalAt,
+		Integer overrunMinutes,
+		Integer spareMinutes
+	) {
+	}
+
+	private record RouteEdge(
+		String fromClientId,
+		String toClientId
+	) {
+	}
+
 	private record DraftCalculationContext(
+		Schedule schedule,
 		Map<String, DraftSlotRequest> draftSlotsByClientId,
 		Map<Long, Place> placesById
 	) {

@@ -101,6 +101,7 @@ public class ConcertService {
 		List<InterestTag> tags = deduplicate(request.tags());
 
 		concertInterestTagRepository.deleteAllByUserIdAndConcertId(userId, concertId);
+		concertInterestTagRepository.flush();
 		List<ConcertInterestTag> entities = tags.stream()
 			.map(tag -> ConcertInterestTag.create(user, concert, tag))
 			.toList();

@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.schedule.controller;
 
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftScheduleRequest;
+import com.buddyduck.buddyduck.domain.schedule.dto.DraftScheduleRecommendationRequest;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftScheduleResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.ScheduleMapResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.TimelineResponse;
@@ -51,6 +52,18 @@ public class ScheduleController {
 		return ApiResponse.onSuccess(
 			GeneralSuccessCode.OK,
 			scheduleService.recalculateDraft(scheduleId, principal.userId(), request)
+		);
+	}
+
+	@PostMapping("/schedules/{scheduleId}/draft/recommend")
+	public ApiResponse<DraftScheduleResponse> recommendDraft(
+		@PathVariable Long scheduleId,
+		@AuthenticationPrincipal UserPrincipal principal,
+		@Valid @RequestBody DraftScheduleRecommendationRequest request
+	) {
+		return ApiResponse.onSuccess(
+			GeneralSuccessCode.OK,
+			scheduleService.recommendDraft(scheduleId, principal.userId(), request)
 		);
 	}
 

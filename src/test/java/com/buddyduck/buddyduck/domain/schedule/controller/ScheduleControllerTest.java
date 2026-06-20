@@ -58,6 +58,7 @@ class ScheduleControllerTest {
 	private Long scheduleId;
 	private Long meetingPlaceId;
 	private Long cafePlaceId;
+	private Long farPlaceId;
 
 	@BeforeEach
 	void setUp() {
@@ -69,6 +70,7 @@ class ScheduleControllerTest {
 		meetingPlaceId = insertPlace("잠실역 5번 출구", "서울 송파구 잠실동", "37.5130000", "127.1000000");
 		Long eventPlaceId = insertPlace("KSPO Dome", "서울 송파구 올림픽로 424", "37.5190000", "127.1270000");
 		cafePlaceId = insertPlace("잠실 카페 무드", "서울 송파구 올림픽로 300", "37.5150000", "127.1020000");
+		farPlaceId = insertPlace("올림픽공원 굿즈샵", "서울 송파구 올림픽로 424", "37.5300000", "127.1300000");
 		roomId = insertRoom(concertId, eventPlaceId);
 		scheduleId = insertSchedule(roomId);
 		insertMember(roomId, host.getId(), "HOST");
@@ -298,6 +300,54 @@ class ScheduleControllerTest {
 			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").doesNotExist());
 	}
 
+	@Test
+	void 추천_일정은_첫_슬롯을_고정하고_나머지_장소를_이동시간이_짧은_순서로_재배열한다() throws Exception {
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recommend", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(recommendationPayload())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.fitStatus").value("OK"))
+			.andExpect(jsonPath("$.result.slots[0].clientId").value("slot-meeting"))
+			.andExpect(jsonPath("$.result.slots[0].order").value(1))
+			.andExpect(jsonPath("$.result.slots[1].clientId").value("slot-cafe"))
+			.andExpect(jsonPath("$.result.slots[1].order").value(2))
+			.andExpect(jsonPath("$.result.slots[2].clientId").value("slot-goods"))
+			.andExpect(jsonPath("$.result.slots[2].order").value(3))
+			.andExpect(jsonPath("$.result.routeSegments[0].fromClientId").value("slot-meeting"))
+			.andExpect(jsonPath("$.result.routeSegments[0].toClientId").value("slot-cafe"))
+			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"))
+			.andExpect(jsonPath("$.result.routeSegments[1].fromClientId").value("slot-cafe"))
+			.andExpect(jsonPath("$.result.routeSegments[1].toClientId").value("slot-goods"))
+			.andExpect(jsonPath("$.result.routeSegments[1].mode").value("WALK"));
+
+		Integer slotCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM schedule_slots WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
+		Integer routeCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM route_segments WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
+		assertThat(slotCount).isEqualTo(0);
+		assertThat(routeCount).isEqualTo(0);
+	}
+
+	@Test
+	void 추천_일정은_장소가_없는_슬롯을_400으로_응답한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(recommendationPayload());
+		ArrayNode slots = (ArrayNode) payload.path("slots");
+		((ObjectNode) slots.get(1)).remove("placeId");
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recommend", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isBadRequest());
+	}
+
 	private Map<String, Object> draftPayload() {
 		return Map.of(
 			"arrivalBufferMinutes", 30,
@@ -381,6 +431,45 @@ class ScheduleControllerTest {
 					"toClientId", "slot-shop",
 					"mode", "WALK",
 					"durationMinutes", 12
+				)
+			)
+		);
+	}
+
+	private Map<String, Object> recommendationPayload() {
+		return Map.of(
+			"arrivalBufferMinutes", 30,
+			"recommendationMode", "WALK",
+			"slots", List.of(
+				Map.of(
+					"clientId", "slot-meeting",
+					"order", 1,
+					"title", "잠실역 5번 출구",
+					"placeId", meetingPlaceId,
+					"dwellMinutes", 10,
+					"locked", true,
+					"slotType", "MEETING",
+					"category", "MEETING"
+				),
+				Map.of(
+					"clientId", "slot-goods",
+					"order", 2,
+					"title", "올림픽공원 굿즈샵",
+					"placeId", farPlaceId,
+					"dwellMinutes", 20,
+					"locked", false,
+					"slotType", "PLACE",
+					"category", "GOODS_BUYING"
+				),
+				Map.of(
+					"clientId", "slot-cafe",
+					"order", 3,
+					"title", "잠실 카페 무드",
+					"placeId", cafePlaceId,
+					"dwellMinutes", 30,
+					"locked", false,
+					"slotType", "PLACE",
+					"category", "CAFE_VISIT"
 				)
 			)
 		);

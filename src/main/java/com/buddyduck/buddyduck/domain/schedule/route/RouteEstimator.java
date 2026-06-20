@@ -20,8 +20,8 @@ public class RouteEstimator {
 			try {
 				return kakaoMobilityRouteClient.estimate(mode, fromPlace, toPlace)
 					.orElseThrow(() -> new ProjectException(ScheduleErrorCode.ROUTE_ESTIMATION_FAILED));
-			} catch (RestClientException ignored) {
-				throw new ProjectException(ScheduleErrorCode.ROUTE_ESTIMATION_FAILED);
+			} catch (RestClientException exception) {
+				throw new ProjectException(ScheduleErrorCode.ROUTE_ESTIMATION_FAILED, exception);
 			}
 		}
 		return fallbackRouteEstimator.estimate(mode, fromPlace, toPlace);

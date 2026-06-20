@@ -23,4 +23,16 @@ public record RouteEstimate(
 			true
 		);
 	}
+
+	public static RouteEstimate unresolvedPlace(RouteMode mode, Integer durationMinutes) {
+		return new RouteEstimate(
+			mode,
+			null,
+			durationMinutes,
+			null,
+			null,
+			RouteEstimateProvider.UNRESOLVED_PLACE.name(),
+			false
+		);
+	}
 }

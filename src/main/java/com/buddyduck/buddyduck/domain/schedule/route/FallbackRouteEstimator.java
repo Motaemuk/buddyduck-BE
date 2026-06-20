@@ -10,7 +10,7 @@ public class FallbackRouteEstimator {
 	private static final double EARTH_RADIUS_METERS = 6_371_000.0;
 	private static final double WALK_DISTANCE_FACTOR = 1.25;
 	private static final double TAXI_DISTANCE_FACTOR = 1.35;
-	private static final double WALK_SPEED_METERS_PER_MINUTE = 4_000.0 / 60.0;
+	private static final double WALK_SPEED_METERS_PER_MINUTE = 60.0;
 	private static final double TAXI_SPEED_METERS_PER_MINUTE = 22_000.0 / 60.0;
 
 	public RouteEstimate estimate(RouteMode mode, Place fromPlace, Place toPlace) {

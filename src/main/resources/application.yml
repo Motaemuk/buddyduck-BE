@@ -37,7 +37,7 @@ kakao:
     keyword-search-uri: https://dapi.kakao.com/v2/local/search/keyword.json
     address-search-uri: https://dapi.kakao.com/v2/local/search/address.json
   mobility:
-    rest-api-key: ${KAKAO_MOBILITY_REST_API_KEY:${KAKAO_LOCAL_REST_API_KEY:${KAKAO_CLIENT_ID:}}}
+    rest-api-key: ${KAKAO_MOBILITY_REST_API_KEY:${KAKAO_LOCAL_REST_API_KEY:}}
     driving-directions-uri: https://apis-navi.kakaomobility.com/v1/directions
 
 kopis:

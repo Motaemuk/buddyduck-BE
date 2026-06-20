@@ -3,9 +3,12 @@ package com.buddyduck.buddyduck.domain.schedule.route;
 import com.buddyduck.buddyduck.domain.place.entity.Place;
 import com.buddyduck.buddyduck.domain.schedule.enums.RouteMode;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -14,12 +17,24 @@ public class KakaoMobilityRouteClient {
 
 	private static final String AUTHORIZATION_PREFIX = "KakaoAK ";
 	private static final int WALKING_METERS_PER_MINUTE = 60;
+	private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(5);
+	private static final Duration READ_TIMEOUT = Duration.ofSeconds(10);
 
 	private final RestClient restClient;
 	private final KakaoMobilityProperties properties;
 
+	@Autowired
 	public KakaoMobilityRouteClient(RestClient.Builder restClientBuilder, KakaoMobilityProperties properties) {
-		this.restClient = restClientBuilder.build();
+		this(
+			restClientBuilder
+				.requestFactory(requestFactory())
+				.build(),
+			properties
+		);
+	}
+
+	KakaoMobilityRouteClient(RestClient restClient, KakaoMobilityProperties properties) {
+		this.restClient = restClient;
 		this.properties = properties;
 	}
 
@@ -105,6 +120,13 @@ public class KakaoMobilityRouteClient {
 			return 0;
 		}
 		return Math.max(1, (meters + WALKING_METERS_PER_MINUTE - 1) / WALKING_METERS_PER_MINUTE);
+	}
+
+	private static SimpleClientHttpRequestFactory requestFactory() {
+		SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+		requestFactory.setConnectTimeout(CONNECT_TIMEOUT);
+		requestFactory.setReadTimeout(READ_TIMEOUT);
+		return requestFactory;
 	}
 
 	private record KakaoDrivingDirectionsResponse(

@@ -154,7 +154,9 @@ class ScheduleControllerTest {
 			.andExpect(jsonPath("$.result.room.id").value(roomId))
 			.andExpect(jsonPath("$.result.schedule.id").value(scheduleId))
 			.andExpect(jsonPath("$.result.slots[0].title").value("잠실역 5번 출구"))
+			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T14:16:00+09:00"))
 			.andExpect(jsonPath("$.result.routeSegments[0].mode").value("WALK"))
+			.andExpect(jsonPath("$.result.routeSegments[0].durationMinutes").value(6))
 			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").isNumber())
 			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("FALLBACK_STRAIGHT_LINE"))
 			.andExpect(jsonPath("$.result.routeSegments[0].manuallyAdjusted").value(false));
@@ -202,6 +204,23 @@ class ScheduleControllerTest {
 			.andExpect(jsonPath("$.result.routeSegments[0].durationMinutes").value(18))
 			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("MANUAL"))
 			.andExpect(jsonPath("$.result.routeSegments[0].manuallyAdjusted").value(true))
+			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").doesNotExist());
+	}
+
+	@Test
+	void 장소가_없는_이동구간은_입력_시간을_시스템_fallback으로_사용한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(draftPayload());
+		ArrayNode slots = (ArrayNode) payload.path("slots");
+		((ObjectNode) slots.get(0)).remove("placeId");
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.routeSegments[0].durationMinutes").value(18))
+			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("UNRESOLVED_PLACE"))
+			.andExpect(jsonPath("$.result.routeSegments[0].manuallyAdjusted").value(false))
 			.andExpect(jsonPath("$.result.routeSegments[0].distanceMeters").doesNotExist());
 	}
 

@@ -34,7 +34,7 @@ class KakaoMobilityRouteClientTest {
 		KakaoMobilityProperties properties = new KakaoMobilityProperties();
 		properties.setRestApiKey("test-rest-api-key");
 		properties.setDrivingDirectionsUri("https://apis-navi.kakaomobility.com/v1/directions");
-		client = new KakaoMobilityRouteClient(builder, properties);
+		client = new KakaoMobilityRouteClient(builder.build(), properties);
 	}
 
 	@Test
@@ -43,6 +43,7 @@ class KakaoMobilityRouteClientTest {
 			.andExpect(header(HttpHeaders.AUTHORIZATION, "KakaoAK test-rest-api-key"))
 			.andExpect(queryParam("origin", encoded("127.1000000,37.5130000")))
 			.andExpect(queryParam("destination", encoded("127.1020000,37.5150000")))
+			.andExpect(queryParam("priority", "RECOMMEND"))
 			.andExpect(queryParam("summary", "true"))
 			.andRespond(withSuccess("""
 				{
@@ -123,7 +124,7 @@ class KakaoMobilityRouteClientTest {
 	void REST_API_KEY가_비어있으면_비활성화된다() {
 		KakaoMobilityProperties properties = new KakaoMobilityProperties();
 		properties.setRestApiKey(" ");
-		KakaoMobilityRouteClient disabledClient = new KakaoMobilityRouteClient(RestClient.builder(), properties);
+		KakaoMobilityRouteClient disabledClient = new KakaoMobilityRouteClient(RestClient.builder().build(), properties);
 
 		assertThat(disabledClient.isEnabled()).isFalse();
 		assertThat(disabledClient.estimate(

@@ -161,8 +161,8 @@ public class ScheduleService {
 		scheduleSlotRepository.flush();
 		schedule.updatePlanningTimes(
 			request.arrivalBufferMinutes(),
-			draftTimeline.effectiveStartAt(),
-			draftTimeline.targetArrivalAt()
+			customStartAtToPersist(schedule, request),
+			targetArrivalAtToPersist(schedule, request)
 		);
 
 		Map<String, ScheduleSlot> savedSlots = saveSlots(schedule, placesById, draftTimeline.slots());
@@ -291,13 +291,18 @@ public class ScheduleService {
 		List<DraftSlotRequest> sortedSlots = request.slots().stream()
 			.sorted(Comparator.comparing(DraftSlotRequest::order))
 			.toList();
-		Map<String, Integer> routeDurationByToClientId = routeDurationByToClientId(resolvedRouteSegments);
+		Map<RouteEdge, Integer> routeDurationByEdge = routeDurationByEdge(resolvedRouteSegments);
 		List<ResolvedDraftSlot> resolvedSlots = new ArrayList<>();
 		LocalDateTime current = effectiveStartAt;
 
-		for (DraftSlotRequest draftSlot : sortedSlots) {
-			Integer incomingDuration = routeDurationByToClientId.get(draftSlot.clientId());
-			if (incomingDuration != null) {
+		for (int index = 0; index < sortedSlots.size(); index++) {
+			DraftSlotRequest draftSlot = sortedSlots.get(index);
+			if (index > 0) {
+				RouteEdge edge = new RouteEdge(sortedSlots.get(index - 1).clientId(), draftSlot.clientId());
+				Integer incomingDuration = routeDurationByEdge.get(edge);
+				if (incomingDuration == null) {
+					throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+				}
 				current = current.plusMinutes(incomingDuration);
 			}
 			LocalDateTime startAt = current;
@@ -322,13 +327,30 @@ public class ScheduleService {
 		return dwellMinutes + routeMinutes;
 	}
 
-	private Map<String, Integer> routeDurationByToClientId(List<ResolvedDraftRouteSegment> resolvedRouteSegments) {
+	private Map<RouteEdge, Integer> routeDurationByEdge(List<ResolvedDraftRouteSegment> resolvedRouteSegments) {
 		return resolvedRouteSegments.stream()
 			.collect(
 				LinkedHashMap::new,
-				(map, route) -> map.put(route.request().toClientId(), route.estimate().durationMinutes()),
+				(map, route) -> map.put(
+					new RouteEdge(route.request().fromClientId(), route.request().toClientId()),
+					route.estimate().durationMinutes()
+				),
 				Map::putAll
 			);
+	}
+
+	private LocalDateTime customStartAtToPersist(Schedule schedule, DraftScheduleRequest request) {
+		if (request.customStartAt() != null) {
+			return toSeoulLocalDateTime(request.customStartAt());
+		}
+		return schedule.getCustomStartAt();
+	}
+
+	private LocalDateTime targetArrivalAtToPersist(Schedule schedule, DraftScheduleRequest request) {
+		if (request.targetArrivalAt() != null) {
+			return toSeoulLocalDateTime(request.targetArrivalAt());
+		}
+		return schedule.getTargetArrivalAt();
 	}
 
 	private LocalDateTime resolveEffectiveStartAt(Schedule schedule, DraftScheduleRequest request) {
@@ -377,7 +399,7 @@ public class ScheduleService {
 				schedule.getId(),
 				schedule.getArrivalBufferMinutes(),
 				TIMEZONE,
-				ScheduleDateTimeFormatter.format(planningSummary.effectiveStartAt()),
+				ScheduleDateTimeFormatter.format(schedule.getCustomStartAt()),
 				ScheduleDateTimeFormatter.format(planningSummary.targetArrivalAt()),
 				ScheduleDateTimeFormatter.format(planningSummary.recommendedStartAt()),
 				planningSummary.overrunMinutes(),
@@ -488,12 +510,30 @@ public class ScheduleService {
 			}
 		}
 
-		Set<String> routeToClientIds = new HashSet<>();
+		List<DraftSlotRequest> sortedSlots = request.slots().stream()
+			.sorted(Comparator.comparing(DraftSlotRequest::order))
+			.toList();
+		if (request.routeSegments().size() != Math.max(0, sortedSlots.size() - 1)) {
+			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		}
+
+		Set<RouteEdge> routeEdges = new HashSet<>();
 		for (DraftRouteSegmentRequest route : request.routeSegments()) {
+			RouteEdge routeEdge = new RouteEdge(route.fromClientId(), route.toClientId());
 			if (Objects.equals(route.fromClientId(), route.toClientId())
 				|| !slotClientIds.contains(route.fromClientId())
 				|| !slotClientIds.contains(route.toClientId())
-				|| !routeToClientIds.add(route.toClientId())) {
+				|| !routeEdges.add(routeEdge)) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
+		}
+
+		for (int index = 1; index < sortedSlots.size(); index++) {
+			RouteEdge expectedEdge = new RouteEdge(
+				sortedSlots.get(index - 1).clientId(),
+				sortedSlots.get(index).clientId()
+			);
+			if (!routeEdges.contains(expectedEdge)) {
 				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 			}
 		}
@@ -537,6 +577,12 @@ public class ScheduleService {
 		LocalDateTime targetArrivalAt,
 		Integer overrunMinutes,
 		Integer spareMinutes
+	) {
+	}
+
+	private record RouteEdge(
+		String fromClientId,
+		String toClientId
 	) {
 	}
 

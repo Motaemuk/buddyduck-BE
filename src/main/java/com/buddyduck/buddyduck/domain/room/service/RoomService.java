@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.room.service;
 
 import com.buddyduck.buddyduck.domain.concert.entity.Concert;
+import com.buddyduck.buddyduck.domain.concert.entity.ConcertInterestTag;
 import com.buddyduck.buddyduck.domain.concert.enums.InterestTag;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertInterestTagRepository;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertRepository;
@@ -342,11 +343,20 @@ public class RoomService {
 
 	private List<RoomDetailMemberResponse> toRoomDetailMembers(Room room, List<InterestTag> roomTags) {
 		Set<InterestTag> roomTagSet = new LinkedHashSet<>(roomTags);
-		return roomMemberRepository.findAllByRoomIdOrderByJoinedAtAscIdAsc(room.getId())
+		List<RoomMember> members = roomMemberRepository.findAllByRoomIdOrderByJoinedAtAscIdAsc(room.getId());
+		List<Long> memberUserIds = members.stream()
+			.map(member -> member.getUser().getId())
+			.toList();
+		Map<Long, Set<InterestTag>> userTagsByUserId = getUserInterestTagsByUserIds(
+			memberUserIds,
+			room.getConcert().getId()
+		);
+
+		return members
 			.stream()
 			.map(member -> {
 				User memberUser = member.getUser();
-				Set<InterestTag> userTags = getUserInterestTags(memberUser.getId(), room.getConcert().getId());
+				Set<InterestTag> userTags = userTagsByUserId.getOrDefault(memberUser.getId(), Set.of());
 				int sharedInterestCount = (int) userTags.stream()
 					.filter(roomTagSet::contains)
 					.count();
@@ -360,6 +370,18 @@ public class RoomService {
 				);
 			})
 			.toList();
+	}
+
+	private Map<Long, Set<InterestTag>> getUserInterestTagsByUserIds(List<Long> userIds, Long concertId) {
+		if (userIds.isEmpty()) {
+			return Map.of();
+		}
+		return concertInterestTagRepository.findAllByUserIdInAndConcertId(userIds, concertId)
+			.stream()
+			.collect(Collectors.groupingBy(
+				interestTag -> interestTag.getUser().getId(),
+				Collectors.mapping(ConcertInterestTag::getTag, Collectors.toCollection(LinkedHashSet::new))
+			));
 	}
 
 	private List<RoomDetailScheduleSlotResponse> toSchedulePreview(Long roomId) {

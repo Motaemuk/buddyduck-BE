@@ -9,6 +9,8 @@ import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class UserQueryService {
+
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
 	private final UserRepository userRepository;
 	private final RoomMemberRepository roomMemberRepository;
@@ -44,6 +48,7 @@ public class UserQueryService {
 	}
 
 	private UserProfileResponse toUserProfileResponse(User user) {
+		LocalDateTime now = LocalDateTime.now(KST);
 		return new UserProfileResponse(
 			user.getId(),
 			user.getNickname(),
@@ -51,8 +56,8 @@ public class UserQueryService {
 			user.getGender(),
 			user.isProfileCompleted(),
 			user.getAvatarColor(),
-			roomMemberRepository.countByUserId(user.getId()),
-			joinRequestRepository.countByUserIdAndStatus(user.getId(), JoinRequestStatus.PENDING)
+			roomMemberRepository.countActiveByUserId(user.getId(), now),
+			joinRequestRepository.countActiveByUserIdAndStatus(user.getId(), JoinRequestStatus.PENDING, now)
 		);
 	}
 }

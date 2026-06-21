@@ -14,6 +14,7 @@ import com.buddyduck.buddyduck.global.security.AuthUser;
 import com.buddyduck.buddyduck.global.security.JwtTokenProvider;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -122,6 +123,46 @@ class UserControllerTest {
 	}
 
 	@Test
+	void 내_프로필_방_수는_공연이_종료된_방을_제외한다() throws Exception {
+		User user = userRepository.save(User.createKakao(
+			"12345",
+			"duck_fan",
+			AgeRange.TWENTIES,
+			UserGender.FEMALE
+		));
+		User host = userRepository.save(User.createKakao(
+			"67890",
+			"host_duck",
+			AgeRange.TWENTIES,
+			UserGender.FEMALE
+		));
+		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+		Long activeConcertId = insertConcert();
+		Long expiredConcertId = insertConcert(
+			"profile-expired-concert",
+			now.minusDays(2),
+			now.minusDays(1)
+		);
+		Long meetingPlaceId = insertPlace("잠실역 5번 출구");
+		Long eventPlaceId = insertPlace("KSPO Dome");
+		Long activeJoinedRoomId = insertRoom(host.getId(), activeConcertId, meetingPlaceId, eventPlaceId, "참여중인 방");
+		Long activePendingRoomId = insertRoom(host.getId(), activeConcertId, meetingPlaceId, eventPlaceId, "대기중인 방");
+		Long expiredJoinedRoomId = insertRoom(host.getId(), expiredConcertId, meetingPlaceId, eventPlaceId, "지난 참여중인 방");
+		Long expiredPendingRoomId = insertRoom(host.getId(), expiredConcertId, meetingPlaceId, eventPlaceId, "지난 대기중인 방");
+		insertRoomMember(activeJoinedRoomId, user.getId(), "MEMBER");
+		insertRoomMember(expiredJoinedRoomId, user.getId(), "MEMBER");
+		insertJoinRequest(activePendingRoomId, user.getId());
+		insertJoinRequest(expiredPendingRoomId, user.getId());
+		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
+
+		mockMvc.perform(get("/api/users/me")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.participatingRoomCount").value(1))
+			.andExpect(jsonPath("$.result.pendingRoomCount").value(1));
+	}
+
+	@Test
 	void 추가_프로필을_저장하면_회원가입이_완료된다() throws Exception {
 		User user = userRepository.save(User.createKakao(
 				"12345",
@@ -207,23 +248,41 @@ class UserControllerTest {
 	}
 
 	private Long insertConcert() {
+		LocalDateTime startAt = futureConcertStartAt();
+		return insertConcert(
+			"profile-test-concert",
+			startAt,
+			startAt.plusHours(2)
+		);
+	}
+
+	private Long insertConcert(String externalId, LocalDateTime startAt, LocalDateTime endAt) {
 		jdbcTemplate.update("""
 			INSERT INTO concerts (
 				external_id, title, venue_name, start_at, end_at, lat, lng, source, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			""",
-			"profile-test-concert",
+			externalId,
 			"AURORA LIVE",
 			"KSPO Dome",
-			LocalDateTime.of(2026, 7, 5, 19, 0),
-			LocalDateTime.of(2026, 7, 5, 21, 30),
+			startAt,
+			endAt,
 			new BigDecimal("37.5190000"),
 			new BigDecimal("127.1270000"),
 			"SEED",
 			LocalDateTime.now(),
 			LocalDateTime.now()
 		);
-		return jdbcTemplate.queryForObject("SELECT id FROM concerts WHERE external_id = ?", Long.class, "profile-test-concert");
+		return jdbcTemplate.queryForObject("SELECT id FROM concerts WHERE external_id = ?", Long.class, externalId);
+	}
+
+	private LocalDateTime futureConcertStartAt() {
+		return LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+			.plusDays(7)
+			.withHour(19)
+			.withMinute(0)
+			.withSecond(0)
+			.withNano(0);
 	}
 
 	private Long insertPlace(String name) {

@@ -10,4 +10,6 @@ public interface RoomTagRepository extends JpaRepository<RoomTag, Long> {
 	List<RoomTag> findAllByRoomIdOrderByIdAsc(Long roomId);
 
 	List<RoomTag> findAllByRoomIdInOrderByIdAsc(Collection<Long> roomIds);
+
+	void deleteByRoomId(Long roomId);
 }

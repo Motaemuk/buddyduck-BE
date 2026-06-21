@@ -20,8 +20,10 @@ import com.buddyduck.buddyduck.domain.room.dto.RoomDetailScheduleSlotResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomLeaveResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListItemResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListResponse;
+import com.buddyduck.buddyduck.domain.room.dto.RoomManagementResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomPermissionsResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomPlaceRequest;
+import com.buddyduck.buddyduck.domain.room.dto.UpdateRoomRequest;
 import com.buddyduck.buddyduck.domain.room.entity.JoinRequest;
 import com.buddyduck.buddyduck.domain.room.entity.Room;
 import com.buddyduck.buddyduck.domain.room.entity.RoomMember;
@@ -262,6 +264,48 @@ public class RoomService {
 		return new RoomLeaveResponse("LEFT");
 	}
 
+	@Transactional
+	public RoomManagementResponse updateRoom(Long roomId, Long userId, UpdateRoomRequest request) {
+		Room room = getRoomForUpdateOrThrow(roomId);
+		requireHost(room, userId);
+		long memberCount = roomMemberRepository.countByRoomId(roomId);
+		if (request.maxMembers() < 2 || request.maxMembers() < memberCount) {
+			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		}
+
+		Place meetingPlace = upsertPlace(request.meetingPlace());
+		Place eventPlace = upsertPlace(request.eventPlace());
+		room.update(
+			request.title(),
+			request.description(),
+			request.maxMembers(),
+			request.meetingAt().atZoneSameInstant(KST).toLocalDateTime(),
+			meetingPlace,
+			eventPlace,
+			request.openChatUrl(),
+			request.openChatPassword()
+		);
+		replaceRoomTags(room, request.roomTags());
+		syncDefaultScheduleAnchors(room);
+		if (room.getStatus() != RoomStatus.CLOSED) {
+			updateCapacityStatus(room, memberCount);
+		}
+
+		return toRoomManagementResponse(room);
+	}
+
+	@Transactional
+	public RoomManagementResponse closeRoom(Long roomId, Long userId) {
+		Room room = closeRoomInternal(roomId, userId);
+		return toRoomManagementResponse(room);
+	}
+
+	@Transactional
+	public RoomManagementResponse deleteRoom(Long roomId, Long userId) {
+		Room room = closeRoomInternal(roomId, userId);
+		return toRoomManagementResponse(room);
+	}
+
 	public Room getRoomOrThrow(Long roomId) {
 		return roomRepository.findById(roomId)
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
@@ -283,6 +327,66 @@ public class RoomService {
 
 	boolean isFull(Room room) {
 		return roomMemberRepository.countByRoomId(room.getId()) >= room.getMaxMembers();
+	}
+
+	private void requireHost(Room room, Long userId) {
+		if (!isHost(room, userId)) {
+			throw new ProjectException(GeneralErrorCode.FORBIDDEN);
+		}
+	}
+
+	private RoomManagementResponse toRoomManagementResponse(Room room) {
+		return new RoomManagementResponse(room.getId(), room.getStatus().name());
+	}
+
+	private Room closeRoomInternal(Long roomId, Long userId) {
+		Room room = getRoomForUpdateOrThrow(roomId);
+		requireHost(room, userId);
+		room.markClosed();
+		return room;
+	}
+
+	private void replaceRoomTags(Room room, List<InterestTag> tags) {
+		roomTagRepository.deleteByRoomId(room.getId());
+		roomTagRepository.saveAll(deduplicate(tags).stream()
+			.map(tag -> RoomTag.create(room, tag))
+			.toList());
+	}
+
+	private void updateCapacityStatus(Room room, long memberCount) {
+		if (memberCount >= room.getMaxMembers()) {
+			room.markFull();
+			return;
+		}
+		room.markOpen();
+	}
+
+	private void syncDefaultScheduleAnchors(Room room) {
+		scheduleRepository.findByRoomId(room.getId())
+			.ifPresent(schedule -> scheduleSlotRepository.findAllByScheduleIdOrderBySortOrderAsc(schedule.getId())
+				.forEach(slot -> {
+					if (!Boolean.TRUE.equals(slot.getLocked())) {
+						return;
+					}
+					if (slot.getSlotType() == SlotType.MEETING) {
+						slot.updateAnchor(
+							room.getMeetingPlace(),
+							room.getMeetingPlace().getName(),
+							room.getMeetingAt(),
+							room.getMeetingAt()
+						);
+					}
+					if (slot.getSlotType() == SlotType.CONCERT) {
+						slot.updateAnchor(
+							room.getEventPlace(),
+							room.getConcert().getTitle(),
+							room.getConcert().getStartAt(),
+							room.getConcert().getEndAt() == null
+								? room.getConcert().getStartAt()
+								: room.getConcert().getEndAt()
+						);
+					}
+				}));
 	}
 
 	private RoomListItemResponse toRoomListItem(Room room, Set<InterestTag> userTags) {

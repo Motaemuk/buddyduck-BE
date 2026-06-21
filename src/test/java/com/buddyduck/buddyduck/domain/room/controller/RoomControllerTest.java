@@ -6,6 +6,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.buddyduck.buddyduck.domain.room.dto.RoomDateTimeFormatter;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.enums.AgeRange;
 import com.buddyduck.buddyduck.domain.user.enums.UserGender;
@@ -17,6 +18,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
@@ -323,8 +326,10 @@ class RoomControllerTest {
 
 	@Test
 	void 내_방_목록을_조회한다() throws Exception {
-		Long hostedRoomId = insertRoom(host, "내가 만든 방", 4);
-		Long pendingRoomId = insertRoom(visitor, "신청한 방", 4);
+		LocalDateTime activeStartAt = futureConcertStartAt();
+		Long activeConcertId = insertConcert("active-my-room-test-concert", activeStartAt, activeStartAt.plusHours(2));
+		Long hostedRoomId = insertRoom(host, activeConcertId, "내가 만든 방", 4);
+		Long pendingRoomId = insertRoom(visitor, activeConcertId, "신청한 방", 4);
 		insertJoinRequest(pendingRoomId, host.getId(), "신청 중");
 		insertJoinRequest(hostedRoomId, applicant.getId(), "승인 대기");
 
@@ -342,7 +347,7 @@ class RoomControllerTest {
 		assertThat(hostedRoom.path("viewerJoinStatus").asText()).isEqualTo("APPROVED");
 		assertThat(hostedRoom.path("roomStatus").asText()).isEqualTo("OPEN");
 		assertThat(hostedRoom.path("concertTitle").asText()).isEqualTo("AURORA LIVE");
-		assertThat(hostedRoom.path("concertStartAt").asText()).isEqualTo("2026-06-15T19:00:00+09:00");
+		assertThat(hostedRoom.path("concertStartAt").asText()).isEqualTo(RoomDateTimeFormatter.format(activeStartAt));
 		assertThat(hostedRoom.path("daysUntilConcert").isNumber()).isTrue();
 		assertThat(hostedRoom.path("venueName").asText()).isEqualTo("KSPO Dome");
 		assertThat(hostedRoom.path("meetingAt").asText()).isEqualTo("2026-06-15T14:00:00+09:00");
@@ -356,9 +361,41 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 내_방_목록은_공연이_종료된_방을_제외한다() throws Exception {
+		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+		LocalDateTime activeStartAt = futureConcertStartAt();
+		Long activeConcertId = insertConcert("active-room-test-concert", activeStartAt, activeStartAt.plusHours(2));
+		Long expiredConcertId = insertConcert(
+			"expired-room-test-concert",
+			now.minusDays(2),
+			now.minusDays(1)
+		);
+		Long activeRoomId = insertRoom(host, activeConcertId, "아직 참여중인 방", 4);
+		Long expiredHostedRoomId = insertRoom(host, expiredConcertId, "지난 내가 만든 방", 4);
+		Long expiredJoinedRoomId = insertRoom(visitor, expiredConcertId, "지난 참여 방", 4);
+		Long expiredPendingRoomId = insertRoom(visitor, expiredConcertId, "지난 신청 방", 4);
+		insertMember(expiredJoinedRoomId, host.getId(), "MEMBER");
+		insertJoinRequest(expiredPendingRoomId, host.getId(), "지난 신청");
+
+		MvcResult result = mockMvc.perform(get("/api/me/rooms")
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("items");
+		assertThat(roomIds(items))
+			.contains(activeRoomId)
+			.doesNotContain(expiredHostedRoomId, expiredJoinedRoomId, expiredPendingRoomId);
+	}
+
+	@Test
 	void 내_방_목록은_tab으로_대기중인_방만_필터링한다() throws Exception {
-		Long hostedRoomId = insertRoom(host, "내가 만든 방", 4);
-		Long pendingRoomId = insertRoom(visitor, "신청한 방", 4);
+		LocalDateTime activeStartAt = futureConcertStartAt();
+		Long activeConcertId = insertConcert("active-pending-room-test-concert", activeStartAt, activeStartAt.plusHours(2));
+		Long hostedRoomId = insertRoom(host, activeConcertId, "내가 만든 방", 4);
+		Long pendingRoomId = insertRoom(visitor, activeConcertId, "신청한 방", 4);
 		insertJoinRequest(pendingRoomId, host.getId(), "신청 중");
 
 		MvcResult result = mockMvc.perform(get("/api/me/rooms")
@@ -442,23 +479,40 @@ class RoomControllerTest {
 	}
 
 	private Long insertConcert() {
+		return insertConcert(
+			"room-test-concert",
+			LocalDateTime.of(2026, 6, 15, 19, 0),
+			LocalDateTime.of(2026, 6, 15, 21, 30)
+		);
+	}
+
+	private Long insertConcert(String externalId, LocalDateTime startAt, LocalDateTime endAt) {
 		jdbcTemplate.update("""
 			INSERT INTO concerts (
 				external_id, title, venue_name, start_at, end_at, lat, lng, source, created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			""",
-			"room-test-concert",
+			externalId,
 			"AURORA LIVE",
 			"KSPO Dome",
-			LocalDateTime.of(2026, 6, 15, 19, 0),
-			LocalDateTime.of(2026, 6, 15, 21, 30),
+			startAt,
+			endAt,
 			new BigDecimal("37.5190000"),
 			new BigDecimal("127.1270000"),
 			"SEED",
 			LocalDateTime.now(),
 			LocalDateTime.now()
 		);
-		return jdbcTemplate.queryForObject("SELECT id FROM concerts WHERE external_id = ?", Long.class, "room-test-concert");
+		return jdbcTemplate.queryForObject("SELECT id FROM concerts WHERE external_id = ?", Long.class, externalId);
+	}
+
+	private LocalDateTime futureConcertStartAt() {
+		return LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+			.plusDays(7)
+			.withHour(19)
+			.withMinute(0)
+			.withSecond(0)
+			.withNano(0);
 	}
 
 	private Long insertPlace(String name, String address) {
@@ -481,6 +535,10 @@ class RoomControllerTest {
 	}
 
 	private Long insertRoom(User hostUser, String title, int maxMembers) {
+		return insertRoom(hostUser, concertId, title, maxMembers);
+	}
+
+	private Long insertRoom(User hostUser, Long targetConcertId, String title, int maxMembers) {
 		String openChatUrl = "https://open.kakao.com/o/test";
 		jdbcTemplate.update("""
 			INSERT INTO rooms (
@@ -489,7 +547,7 @@ class RoomControllerTest {
 				created_at, updated_at
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 			""",
-			concertId,
+			targetConcertId,
 			hostUser.getId(),
 			title,
 			"설명",
@@ -616,6 +674,12 @@ class RoomControllerTest {
 			}
 		}
 		throw new AssertionError("room not found: " + roomId);
+	}
+
+	private List<Long> roomIds(JsonNode items) {
+		List<Long> roomIds = new ArrayList<>();
+		items.forEach(item -> roomIds.add(item.path("roomId").asLong()));
+		return roomIds;
 	}
 
 	private JsonNode findMemberItem(JsonNode items, String nickname) {

@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.room.repository;
 
 import com.buddyduck.buddyduck.domain.room.entity.RoomMember;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -17,6 +18,17 @@ public interface RoomMemberRepository extends JpaRepository<RoomMember, Long> {
 	long countByRoomId(Long roomId);
 
 	long countByUserId(Long userId);
+
+	@Query("""
+		select count(member.id)
+		from RoomMember member
+		where member.user.id = :userId
+		  and (
+		    (member.room.concert.endAt is not null and member.room.concert.endAt >= :now)
+		    or (member.room.concert.endAt is null and member.room.concert.startAt >= :now)
+		  )
+		""")
+	long countActiveByUserId(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
 	List<RoomMember> findAllByRoomIdOrderByJoinedAtAscIdAsc(Long roomId);
 

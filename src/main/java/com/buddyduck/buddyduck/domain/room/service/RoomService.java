@@ -43,6 +43,7 @@ import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -187,10 +188,13 @@ public class RoomService {
 	public MyRoomListResponse getMyRooms(Long userId, String tab) {
 		getUserOrThrow(userId);
 		MyRoomTab roomTab = parseMyRoomTab(tab);
+		LocalDateTime now = LocalDateTime.now(KST);
 		List<MyRoomSource> sources = new ArrayList<>();
 
 		if (roomTab.includes(MyRoomTab.HOSTED)) {
 			roomRepository.findAllByHostUserIdOrderByCreatedAtDesc(userId)
+				.stream()
+				.filter(room -> isActiveConcertRoom(room, now))
 				.forEach(room -> sources.add(new MyRoomSource(room, "HOST", "APPROVED")));
 		}
 
@@ -198,6 +202,7 @@ public class RoomService {
 			roomMemberRepository.findAllByUserIdOrderByJoinedAtDesc(userId)
 				.stream()
 				.filter(member -> member.getRole() == RoomMemberRole.MEMBER)
+				.filter(member -> isActiveConcertRoom(member.getRoom(), now))
 				.forEach(member -> sources.add(new MyRoomSource(member.getRoom(), "MEMBER", "APPROVED")));
 		}
 
@@ -205,6 +210,7 @@ public class RoomService {
 			joinRequestRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
 				.stream()
 				.filter(request -> request.getStatus() == JoinRequestStatus.PENDING)
+				.filter(request -> isActiveConcertRoom(request.getRoom(), now))
 				.forEach(request -> sources.add(new MyRoomSource(request.getRoom(), "VISITOR", request.getStatus().name())));
 		}
 
@@ -342,6 +348,12 @@ public class RoomService {
 		LocalDate today = LocalDate.now(KST);
 		LocalDate concertDate = room.getConcert().getStartAt().toLocalDate();
 		return ChronoUnit.DAYS.between(today, concertDate);
+	}
+
+	private boolean isActiveConcertRoom(Room room, LocalDateTime now) {
+		LocalDateTime visibleUntil = Optional.ofNullable(room.getConcert().getEndAt())
+			.orElse(room.getConcert().getStartAt());
+		return !visibleUntil.isBefore(now);
 	}
 
 	private void createDefaultScheduleSlots(Schedule schedule, Room room) {

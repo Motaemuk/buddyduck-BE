@@ -2,6 +2,7 @@ package com.buddyduck.buddyduck.domain.room.repository;
 
 import com.buddyduck.buddyduck.domain.room.entity.JoinRequest;
 import com.buddyduck.buddyduck.domain.room.enums.JoinRequestStatus;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -20,6 +21,22 @@ public interface JoinRequestRepository extends JpaRepository<JoinRequest, Long> 
 	long countByRoomIdAndStatus(Long roomId, JoinRequestStatus status);
 
 	long countByUserIdAndStatus(Long userId, JoinRequestStatus status);
+
+	@Query("""
+		select count(request.id)
+		from JoinRequest request
+		where request.user.id = :userId
+		  and request.status = :status
+		  and (
+		    (request.room.concert.endAt is not null and request.room.concert.endAt >= :now)
+		    or (request.room.concert.endAt is null and request.room.concert.startAt >= :now)
+		  )
+		""")
+	long countActiveByUserIdAndStatus(
+		@Param("userId") Long userId,
+		@Param("status") JoinRequestStatus status,
+		@Param("now") LocalDateTime now
+	);
 
 	List<JoinRequest> findAllByUserIdOrderByCreatedAtDesc(Long userId);
 

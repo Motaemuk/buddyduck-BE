@@ -336,6 +336,30 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 승인된_입장_신청은_취소할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		Long requestId = insertJoinRequest(roomId, applicant.getId(), "처음 신청");
+		jdbcTemplate.update("UPDATE join_requests SET status = 'APPROVED' WHERE id = ?", requestId);
+
+		mockMvc.perform(delete("/api/rooms/{roomId}/join-requests/me", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("JOIN02"));
+	}
+
+	@Test
+	void 거절된_입장_신청은_취소할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		Long requestId = insertJoinRequest(roomId, applicant.getId(), "처음 신청");
+		jdbcTemplate.update("UPDATE join_requests SET status = 'REJECTED' WHERE id = ?", requestId);
+
+		mockMvc.perform(delete("/api/rooms/{roomId}/join-requests/me", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("JOIN02"));
+	}
+
+	@Test
 	void 입장_신청을_거절한다() throws Exception {
 		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
 		Long requestId = insertJoinRequest(roomId, applicant.getId(), "같이 이동하고 싶어요");

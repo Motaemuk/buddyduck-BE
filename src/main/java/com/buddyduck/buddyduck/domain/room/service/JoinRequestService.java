@@ -74,7 +74,7 @@ public class JoinRequestService {
 	@Transactional
 	public JoinRequestCancelResponse cancelMyJoinRequest(Long roomId, Long userId) {
 		roomService.getRoomOrThrow(roomId);
-		JoinRequest joinRequest = joinRequestRepository.findByRoomIdAndUserId(roomId, userId)
+		JoinRequest joinRequest = joinRequestRepository.findByRoomIdAndUserIdForUpdate(roomId, userId)
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 		if (joinRequest.getStatus() != JoinRequestStatus.PENDING) {
 			throw new ProjectException(RoomErrorCode.INVALID_JOIN_STATUS);

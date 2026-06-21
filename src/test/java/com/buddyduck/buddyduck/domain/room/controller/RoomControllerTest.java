@@ -231,6 +231,7 @@ class RoomControllerTest {
 		Long hostedRoomId = insertRoom(host, "내가 만든 방", 4);
 		Long pendingRoomId = insertRoom(visitor, "신청한 방", 4);
 		insertJoinRequest(pendingRoomId, host.getId(), "신청 중");
+		insertJoinRequest(hostedRoomId, applicant.getId(), "승인 대기");
 
 		MvcResult result = mockMvc.perform(get("/api/me/rooms")
 				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
@@ -244,7 +245,40 @@ class RoomControllerTest {
 		JsonNode pendingRoom = findRoomItem(items, pendingRoomId);
 		assertThat(hostedRoom.path("viewerRole").asText()).isEqualTo("HOST");
 		assertThat(hostedRoom.path("viewerJoinStatus").asText()).isEqualTo("APPROVED");
+		assertThat(hostedRoom.path("roomStatus").asText()).isEqualTo("OPEN");
+		assertThat(hostedRoom.path("concertTitle").asText()).isEqualTo("AURORA LIVE");
+		assertThat(hostedRoom.path("concertStartAt").asText()).isEqualTo("2026-06-15T19:00:00+09:00");
+		assertThat(hostedRoom.path("daysUntilConcert").isNumber()).isTrue();
+		assertThat(hostedRoom.path("venueName").asText()).isEqualTo("KSPO Dome");
+		assertThat(hostedRoom.path("meetingAt").asText()).isEqualTo("2026-06-15T14:00:00+09:00");
+		assertThat(hostedRoom.path("meetingPlaceName").asText()).isEqualTo("잠실역 5번 출구");
+		assertThat(hostedRoom.path("meetingPlaceAddress").asText()).isEqualTo("서울 송파구 잠실동");
+		assertThat(hostedRoom.path("memberCount").asLong()).isEqualTo(1);
+		assertThat(hostedRoom.path("maxMembers").asInt()).isEqualTo(4);
+		assertThat(hostedRoom.path("pendingJoinRequestCount").asLong()).isEqualTo(1);
 		assertThat(pendingRoom.path("viewerJoinStatus").asText()).isEqualTo("PENDING");
+		assertThat(pendingRoom.path("pendingJoinRequestCount").asLong()).isZero();
+	}
+
+	@Test
+	void 내_방_목록은_tab으로_대기중인_방만_필터링한다() throws Exception {
+		Long hostedRoomId = insertRoom(host, "내가 만든 방", 4);
+		Long pendingRoomId = insertRoom(visitor, "신청한 방", 4);
+		insertJoinRequest(pendingRoomId, host.getId(), "신청 중");
+
+		MvcResult result = mockMvc.perform(get("/api/me/rooms")
+				.param("tab", "pending")
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("items");
+		assertThat(items).hasSize(1);
+		assertThat(items.get(0).path("roomId").asLong()).isEqualTo(pendingRoomId);
+		assertThat(items.get(0).path("roomId").asLong()).isNotEqualTo(hostedRoomId);
+		assertThat(items.get(0).path("viewerJoinStatus").asText()).isEqualTo("PENDING");
 	}
 
 	@Test

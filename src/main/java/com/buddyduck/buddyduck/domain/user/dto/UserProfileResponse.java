@@ -9,6 +9,8 @@ public record UserProfileResponse(
 	AgeRange ageRange,
 	UserGender gender,
 	boolean profileCompleted,
-	String avatarColor
+	String avatarColor,
+	long participatingRoomCount,
+	long pendingRoomCount
 ) {
 }

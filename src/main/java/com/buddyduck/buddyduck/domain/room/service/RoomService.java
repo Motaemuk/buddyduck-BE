@@ -34,10 +34,13 @@ import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
+import java.time.LocalDate;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -152,30 +155,42 @@ public class RoomService {
 	@Transactional(readOnly = true)
 	public MyRoomListResponse getMyRooms(Long userId, String tab) {
 		getUserOrThrow(userId);
-		List<MyRoomItemResponse> items = new ArrayList<>();
+		MyRoomTab roomTab = parseMyRoomTab(tab);
+		List<MyRoomSource> sources = new ArrayList<>();
 
-		roomRepository.findAllByHostUserIdOrderByCreatedAtDesc(userId)
-			.forEach(room -> items.add(new MyRoomItemResponse(room.getId(), room.getTitle(), "HOST", "APPROVED")));
+		if (roomTab.includes(MyRoomTab.HOSTED)) {
+			roomRepository.findAllByHostUserIdOrderByCreatedAtDesc(userId)
+				.forEach(room -> sources.add(new MyRoomSource(room, "HOST", "APPROVED")));
+		}
 
-		roomMemberRepository.findAllByUserIdOrderByJoinedAtDesc(userId)
-			.stream()
-			.filter(member -> member.getRole() == RoomMemberRole.MEMBER)
-			.forEach(member -> items.add(new MyRoomItemResponse(
-				member.getRoom().getId(),
-				member.getRoom().getTitle(),
-				"MEMBER",
-				"APPROVED"
-			)));
+		if (roomTab.includes(MyRoomTab.JOINED)) {
+			roomMemberRepository.findAllByUserIdOrderByJoinedAtDesc(userId)
+				.stream()
+				.filter(member -> member.getRole() == RoomMemberRole.MEMBER)
+				.forEach(member -> sources.add(new MyRoomSource(member.getRoom(), "MEMBER", "APPROVED")));
+		}
 
-		joinRequestRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
-			.stream()
-			.filter(request -> request.getStatus() == JoinRequestStatus.PENDING)
-			.forEach(request -> items.add(new MyRoomItemResponse(
-				request.getRoom().getId(),
-				request.getRoom().getTitle(),
-				"VISITOR",
-				request.getStatus().name()
-			)));
+		if (roomTab.includes(MyRoomTab.PENDING)) {
+			joinRequestRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
+				.stream()
+				.filter(request -> request.getStatus() == JoinRequestStatus.PENDING)
+				.forEach(request -> sources.add(new MyRoomSource(request.getRoom(), "VISITOR", request.getStatus().name())));
+		}
+
+		Set<Long> roomIds = sources.stream()
+			.map(source -> source.room().getId())
+			.collect(Collectors.toCollection(LinkedHashSet::new));
+		Map<Long, Long> memberCounts = countMembersByRoomIds(roomIds);
+		Map<Long, Long> pendingRequestCounts = countPendingRequestsByRoomIds(roomIds);
+		List<MyRoomItemResponse> items = sources.stream()
+			.map(source -> toMyRoomItem(
+				source.room(),
+				source.viewerRole(),
+				source.viewerJoinStatus(),
+				memberCounts.getOrDefault(source.room().getId(), 0L),
+				pendingRequestCounts.getOrDefault(source.room().getId(), 0L)
+			))
+			.toList();
 
 		return new MyRoomListResponse(items, 0, items.size(), false);
 	}
@@ -236,6 +251,66 @@ public class RoomService {
 			roomTags,
 			matchCount
 		);
+	}
+
+	private MyRoomItemResponse toMyRoomItem(
+		Room room,
+		String viewerRole,
+		String viewerJoinStatus,
+		long memberCount,
+		long roomPendingRequestCount
+	) {
+		long pendingJoinRequestCount = "HOST".equals(viewerRole)
+			? roomPendingRequestCount
+			: 0;
+
+		return new MyRoomItemResponse(
+			room.getId(),
+			room.getTitle(),
+			viewerRole,
+			viewerJoinStatus,
+			room.getStatus().name(),
+			room.getConcert().getTitle(),
+			RoomDateTimeFormatter.format(room.getConcert().getStartAt()),
+			calculateDaysUntilConcert(room),
+			room.getConcert().getVenueName(),
+			RoomDateTimeFormatter.format(room.getMeetingAt()),
+			room.getMeetingPlace().getName(),
+			room.getMeetingPlace().getAddress(),
+			memberCount,
+			room.getMaxMembers(),
+			pendingJoinRequestCount
+		);
+	}
+
+	private Map<Long, Long> countMembersByRoomIds(Set<Long> roomIds) {
+		if (roomIds.isEmpty()) {
+			return Map.of();
+		}
+		return roomMemberRepository.countMembersByRoomIds(roomIds)
+			.stream()
+			.collect(Collectors.toMap(
+				RoomMemberRepository.RoomMemberCount::getRoomId,
+				RoomMemberRepository.RoomMemberCount::getMemberCount
+			));
+	}
+
+	private Map<Long, Long> countPendingRequestsByRoomIds(Set<Long> roomIds) {
+		if (roomIds.isEmpty()) {
+			return Map.of();
+		}
+		return joinRequestRepository.countRequestsByRoomIdsAndStatus(roomIds, JoinRequestStatus.PENDING)
+			.stream()
+			.collect(Collectors.toMap(
+				JoinRequestRepository.RoomPendingRequestCount::getRoomId,
+				JoinRequestRepository.RoomPendingRequestCount::getPendingRequestCount
+			));
+	}
+
+	private long calculateDaysUntilConcert(Room room) {
+		LocalDate today = LocalDate.now(KST);
+		LocalDate concertDate = room.getConcert().getStartAt().toLocalDate();
+		return ChronoUnit.DAYS.between(today, concertDate);
 	}
 
 	private RoomListResponse page(List<RoomListItemResponse> allItems, int page, int size) {
@@ -313,6 +388,17 @@ public class RoomService {
 		}
 	}
 
+	private MyRoomTab parseMyRoomTab(String value) {
+		if (!StringUtils.hasText(value) || value.equalsIgnoreCase("all")) {
+			return MyRoomTab.ALL;
+		}
+		try {
+			return MyRoomTab.valueOf(value.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		}
+	}
+
 	private Set<InterestTag> parseTags(String value) {
 		if (!StringUtils.hasText(value)) {
 			return Set.of();
@@ -334,5 +420,19 @@ public class RoomService {
 	}
 
 	private record ViewerState(String role, String joinStatus) {
+	}
+
+	private record MyRoomSource(Room room, String viewerRole, String viewerJoinStatus) {
+	}
+
+	private enum MyRoomTab {
+		ALL,
+		HOSTED,
+		JOINED,
+		PENDING;
+
+		private boolean includes(MyRoomTab target) {
+			return this == ALL || this == target;
+		}
 	}
 }

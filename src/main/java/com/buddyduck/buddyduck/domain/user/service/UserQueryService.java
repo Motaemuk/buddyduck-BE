@@ -1,5 +1,8 @@
 package com.buddyduck.buddyduck.domain.user.service;
 
+import com.buddyduck.buddyduck.domain.room.enums.JoinRequestStatus;
+import com.buddyduck.buddyduck.domain.room.repository.JoinRequestRepository;
+import com.buddyduck.buddyduck.domain.room.repository.RoomMemberRepository;
 import com.buddyduck.buddyduck.domain.user.dto.UserProfileResponse;
 import com.buddyduck.buddyduck.domain.user.dto.UpdateProfileRequest;
 import com.buddyduck.buddyduck.domain.user.entity.User;
@@ -15,20 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 public class UserQueryService {
 
 	private final UserRepository userRepository;
+	private final RoomMemberRepository roomMemberRepository;
+	private final JoinRequestRepository joinRequestRepository;
 
 	@Transactional(readOnly = true)
 	public UserProfileResponse getMyProfile(Long userId) {
 		User user = userRepository.findById(userId)
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 
-		return new UserProfileResponse(
-			user.getId(),
-			user.getNickname(),
-			user.getAgeRange(),
-			user.getGender(),
-			user.isProfileCompleted(),
-			user.getAvatarColor()
-		);
+		return toUserProfileResponse(user);
 	}
 
 	@Transactional
@@ -42,13 +40,19 @@ public class UserQueryService {
 			request.gender()
 		);
 
+		return toUserProfileResponse(user);
+	}
+
+	private UserProfileResponse toUserProfileResponse(User user) {
 		return new UserProfileResponse(
 			user.getId(),
 			user.getNickname(),
 			user.getAgeRange(),
 			user.getGender(),
 			user.isProfileCompleted(),
-			user.getAvatarColor()
+			user.getAvatarColor(),
+			roomMemberRepository.countByUserId(user.getId()),
+			joinRequestRepository.countByUserIdAndStatus(user.getId(), JoinRequestStatus.PENDING)
 		);
 	}
 }

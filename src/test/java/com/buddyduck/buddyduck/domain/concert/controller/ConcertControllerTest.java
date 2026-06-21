@@ -18,6 +18,9 @@ import com.buddyduck.buddyduck.global.security.JwtTokenProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,8 +66,10 @@ class ConcertControllerTest {
 
 	@Test
 	void 공연_목록은_인증_없이_다가오는_공연순으로_조회한다() throws Exception {
-		insertConcert("seed-late", "BLOSSOM LIVE", "KSPO Dome", LocalDateTime.of(2026, 6, 20, 19, 0));
-		Long concertId = insertConcert("seed-early", "AURORA LIVE", "Jamsil Arena", LocalDateTime.of(2026, 6, 15, 19, 0));
+		LocalDateTime earlyStartAt = futureConcertStartAt(1);
+		LocalDateTime lateStartAt = futureConcertStartAt(5);
+		insertConcert("seed-late", "BLOSSOM LIVE", "KSPO Dome", lateStartAt);
+		Long concertId = insertConcert("seed-early", "AURORA LIVE", "Jamsil Arena", earlyStartAt);
 		insertOpenRoom(concertId);
 
 		mockMvc.perform(get("/api/concerts")
@@ -75,7 +80,7 @@ class ConcertControllerTest {
 			.andExpect(jsonPath("$.code").value("COMMON200"))
 			.andExpect(jsonPath("$.result.items[0].title").value("AURORA LIVE"))
 			.andExpect(jsonPath("$.result.items[0].venueName").value("Jamsil Arena"))
-			.andExpect(jsonPath("$.result.items[0].startAt").value("2026-06-15T19:00:00+09:00"))
+			.andExpect(jsonPath("$.result.items[0].startAt").value(formatDateTime(earlyStartAt)))
 			.andExpect(jsonPath("$.result.items[0].source").value("SEED"))
 			.andExpect(jsonPath("$.result.items[0].posterUrl").value("https://example.com/poster.png"))
 			.andExpect(jsonPath("$.result.items[0].area").value("서울"))
@@ -90,9 +95,21 @@ class ConcertControllerTest {
 	}
 
 	@Test
+	void 공연_목록은_종료된_공연을_제외한다() throws Exception {
+		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+		insertConcert("seed-expired", "YESTERDAY LIVE", "Old Arena", now.minusDays(2), now.minusDays(1));
+		insertConcert("seed-active", "TOMORROW LIVE", "KSPO Dome", now.plusDays(1), now.plusDays(1).plusHours(2));
+
+		mockMvc.perform(get("/api/concerts"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.items.length()").value(1))
+			.andExpect(jsonPath("$.result.items[0].title").value("TOMORROW LIVE"));
+	}
+
+	@Test
 	void 공연_목록은_keyword와_region으로_필터링한다() throws Exception {
-		insertConcert("seed-1", "AURORA LIVE", "Jamsil Arena", LocalDateTime.of(2026, 6, 15, 19, 0));
-		insertConcert("seed-2", "BLOSSOM LIVE", "Busan Dome", LocalDateTime.of(2026, 6, 20, 19, 0));
+		insertConcert("seed-1", "AURORA LIVE", "Jamsil Arena", futureConcertStartAt(1));
+		insertConcert("seed-2", "BLOSSOM LIVE", "Busan Dome", futureConcertStartAt(5));
 
 		mockMvc.perform(get("/api/concerts")
 				.param("keyword", "AURORA")
@@ -226,6 +243,16 @@ class ConcertControllerTest {
 	}
 
 	private Long insertConcert(String externalId, String title, String venueName, LocalDateTime startAt) {
+		return insertConcert(externalId, title, venueName, startAt, startAt.plusHours(2));
+	}
+
+	private Long insertConcert(
+		String externalId,
+		String title,
+		String venueName,
+		LocalDateTime startAt,
+		LocalDateTime endAt
+	) {
 		jdbcTemplate.update("""
 			INSERT INTO concerts (
 				external_id, title, venue_name, start_at, end_at, lat, lng, source,
@@ -236,7 +263,7 @@ class ConcertControllerTest {
 			title,
 			venueName,
 			startAt,
-			startAt.plusHours(2),
+			endAt,
 			new BigDecimal("37.5190000"),
 			new BigDecimal("127.1270000"),
 			"SEED",
@@ -248,6 +275,19 @@ class ConcertControllerTest {
 			LocalDateTime.now()
 		);
 		return jdbcTemplate.queryForObject("SELECT id FROM concerts WHERE external_id = ?", Long.class, externalId);
+	}
+
+	private LocalDateTime futureConcertStartAt(int daysAfterToday) {
+		return LocalDateTime.now(ZoneId.of("Asia/Seoul"))
+			.plusDays(daysAfterToday)
+			.withHour(19)
+			.withMinute(0)
+			.withSecond(0)
+			.withNano(0);
+	}
+
+	private String formatDateTime(LocalDateTime value) {
+		return value.atOffset(ZoneOffset.ofHours(9)).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
 	}
 
 	private void insertOpenRoom(Long concertId) {

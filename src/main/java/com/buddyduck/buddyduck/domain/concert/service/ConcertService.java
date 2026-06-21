@@ -19,6 +19,7 @@ import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
 import com.buddyduck.buddyduck.global.apiPayload.exception.ProjectException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +38,7 @@ import org.springframework.util.StringUtils;
 public class ConcertService {
 
 	private static final int MAX_PAGE_SIZE = 50;
+	private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
 	private final ConcertRepository concertRepository;
 	private final ConcertInterestTagRepository concertInterestTagRepository;
@@ -64,6 +66,7 @@ public class ConcertService {
 			startOfDay(from),
 			endExclusive(to),
 			normalize(region),
+			LocalDateTime.now(KST),
 			pageable
 		);
 		List<Concert> concerts = concertPage.getContent();

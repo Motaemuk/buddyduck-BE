@@ -12,7 +12,10 @@ import com.buddyduck.buddyduck.domain.room.dto.MyRoomItemResponse;
 import com.buddyduck.buddyduck.domain.room.dto.MyRoomListResponse;
 import com.buddyduck.buddyduck.domain.room.dto.OpenChatResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDateTimeFormatter;
+import com.buddyduck.buddyduck.domain.room.dto.RoomDetailConcertResponse;
+import com.buddyduck.buddyduck.domain.room.dto.RoomDetailMemberResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDetailResponse;
+import com.buddyduck.buddyduck.domain.room.dto.RoomDetailScheduleSlotResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListItemResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomPermissionsResponse;
@@ -29,7 +32,9 @@ import com.buddyduck.buddyduck.domain.room.repository.RoomMemberRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomTagRepository;
 import com.buddyduck.buddyduck.domain.schedule.entity.Schedule;
+import com.buddyduck.buddyduck.domain.schedule.entity.ScheduleSlot;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleRepository;
+import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleSlotRepository;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
@@ -64,6 +69,7 @@ public class RoomService {
 	private final ConcertInterestTagRepository concertInterestTagRepository;
 	private final PlaceRepository placeRepository;
 	private final ScheduleRepository scheduleRepository;
+	private final ScheduleSlotRepository scheduleSlotRepository;
 	private final UserRepository userRepository;
 
 	@Transactional
@@ -141,14 +147,35 @@ public class RoomService {
 			host
 		);
 		long pendingRequestCount = joinRequestRepository.countByRoomIdAndStatus(roomId, JoinRequestStatus.PENDING);
+		List<InterestTag> roomTags = roomTagRepository.findAllByRoomIdOrderByIdAsc(roomId)
+			.stream()
+			.map(RoomTag::getTag)
+			.toList();
+		long memberCount = roomMemberRepository.countByRoomId(roomId);
 
 		return new RoomDetailResponse(
 			room.getId(),
 			room.getTitle(),
+			room.getDescription(),
+			room.getStatus().name(),
 			viewerState.role(),
 			viewerState.joinStatus(),
 			permissions,
-			pendingRequestCount
+			pendingRequestCount,
+			new RoomDetailConcertResponse(
+				room.getConcert().getId(),
+				room.getConcert().getTitle(),
+				RoomDateTimeFormatter.format(room.getConcert().getStartAt()),
+				room.getConcert().getVenueName()
+			),
+			RoomDateTimeFormatter.format(room.getMeetingAt()),
+			room.getMeetingPlace().getName(),
+			room.getMeetingPlace().getAddress(),
+			roomTags,
+			memberCount,
+			room.getMaxMembers(),
+			toRoomDetailMembers(room, roomTags),
+			toSchedulePreview(roomId)
 		);
 	}
 
@@ -311,6 +338,54 @@ public class RoomService {
 		LocalDate today = LocalDate.now(KST);
 		LocalDate concertDate = room.getConcert().getStartAt().toLocalDate();
 		return ChronoUnit.DAYS.between(today, concertDate);
+	}
+
+	private List<RoomDetailMemberResponse> toRoomDetailMembers(Room room, List<InterestTag> roomTags) {
+		Set<InterestTag> roomTagSet = new LinkedHashSet<>(roomTags);
+		return roomMemberRepository.findAllByRoomIdOrderByJoinedAtAscIdAsc(room.getId())
+			.stream()
+			.map(member -> {
+				User memberUser = member.getUser();
+				Set<InterestTag> userTags = getUserInterestTags(memberUser.getId(), room.getConcert().getId());
+				int sharedInterestCount = (int) userTags.stream()
+					.filter(roomTagSet::contains)
+					.count();
+				return new RoomDetailMemberResponse(
+					memberUser.getId(),
+					memberUser.getNickname(),
+					memberUser.getAgeRange(),
+					memberUser.getGender(),
+					member.getRole().name(),
+					sharedInterestCount
+				);
+			})
+			.toList();
+	}
+
+	private List<RoomDetailScheduleSlotResponse> toSchedulePreview(Long roomId) {
+		return scheduleRepository.findByRoomId(roomId)
+			.map(schedule -> scheduleSlotRepository.findAllByScheduleIdOrderBySortOrderAsc(schedule.getId())
+				.stream()
+				.map(this::toSchedulePreviewSlot)
+				.toList())
+			.orElseGet(List::of);
+	}
+
+	private RoomDetailScheduleSlotResponse toSchedulePreviewSlot(ScheduleSlot slot) {
+		Place place = slot.getPlace();
+		return new RoomDetailScheduleSlotResponse(
+			slot.getId(),
+			slot.getSortOrder(),
+			slot.getTitle(),
+			place == null ? null : place.getId(),
+			place == null ? null : place.getName(),
+			slot.getSlotType(),
+			slot.getCategory(),
+			RoomDateTimeFormatter.format(slot.getStartAt()),
+			RoomDateTimeFormatter.format(slot.getEndAt()),
+			slot.getDwellMinutes(),
+			slot.getLocked()
+		);
 	}
 
 	private RoomListResponse page(List<RoomListItemResponse> allItems, int page, int size) {

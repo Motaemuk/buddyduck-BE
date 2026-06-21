@@ -336,10 +336,42 @@ class ScheduleControllerTest {
 	}
 
 	@Test
+	void 추천_일정은_중간_locked_슬롯의_위치를_유지한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(recommendationPayload());
+		ArrayNode slots = (ArrayNode) payload.path("slots");
+		((ObjectNode) slots.get(1)).put("locked", true);
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recommend", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.slots[0].clientId").value("slot-meeting"))
+			.andExpect(jsonPath("$.result.slots[0].order").value(1))
+			.andExpect(jsonPath("$.result.slots[1].clientId").value("slot-goods"))
+			.andExpect(jsonPath("$.result.slots[1].order").value(2))
+			.andExpect(jsonPath("$.result.slots[2].clientId").value("slot-cafe"))
+			.andExpect(jsonPath("$.result.slots[2].order").value(3));
+	}
+
+	@Test
 	void 추천_일정은_장소가_없는_슬롯을_400으로_응답한다() throws Exception {
 		ObjectNode payload = objectMapper.valueToTree(recommendationPayload());
 		ArrayNode slots = (ArrayNode) payload.path("slots");
 		((ObjectNode) slots.get(1)).remove("placeId");
+
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recommend", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void 추천_일정은_null_slot을_400으로_응답한다() throws Exception {
+		ObjectNode payload = objectMapper.valueToTree(recommendationPayload());
+		ArrayNode slots = (ArrayNode) payload.path("slots");
+		slots.addNull();
 
 		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recommend", scheduleId)
 				.header(HttpHeaders.AUTHORIZATION, bearer(host))

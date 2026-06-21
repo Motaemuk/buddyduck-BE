@@ -591,9 +591,15 @@ public class ScheduleService {
 	}
 
 	private void validateDraftSlots(List<DraftSlotRequest> slots) {
+		if (slots == null) {
+			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		}
 		Set<String> slotClientIds = new HashSet<>();
 		Set<Integer> slotOrders = new HashSet<>();
 		for (DraftSlotRequest slot : slots) {
+			if (slot == null || slot.clientId() == null || slot.order() == null) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
 			if (!slotClientIds.add(slot.clientId()) || !slotOrders.add(slot.order())) {
 				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 			}

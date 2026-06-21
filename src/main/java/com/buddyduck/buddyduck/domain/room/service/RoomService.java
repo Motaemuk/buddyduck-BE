@@ -17,6 +17,7 @@ import com.buddyduck.buddyduck.domain.room.dto.RoomDetailConcertResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDetailMemberResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDetailResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDetailScheduleSlotResponse;
+import com.buddyduck.buddyduck.domain.room.dto.RoomLeaveResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListItemResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomPermissionsResponse;
@@ -240,6 +241,25 @@ public class RoomService {
 			throw new ProjectException(GeneralErrorCode.FORBIDDEN);
 		}
 		return new OpenChatResponse(room.getOpenChatUrl(), room.getOpenChatPassword());
+	}
+
+	@Transactional
+	public RoomLeaveResponse leaveRoom(Long roomId, Long userId) {
+		Room room = getRoomForUpdateOrThrow(roomId);
+		if (isHost(room, userId)) {
+			throw new ProjectException(GeneralErrorCode.FORBIDDEN);
+		}
+		RoomMember member = roomMemberRepository.findByRoomIdAndUserId(roomId, userId)
+			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
+
+		roomMemberRepository.delete(member);
+		joinRequestRepository.findByRoomIdAndUserId(roomId, userId)
+			.ifPresent(joinRequestRepository::delete);
+		if (room.getStatus() != RoomStatus.CLOSED && !isFull(room)) {
+			room.markOpen();
+		}
+
+		return new RoomLeaveResponse("LEFT");
 	}
 
 	public Room getRoomOrThrow(Long roomId) {

@@ -106,4 +106,8 @@ public class Room extends BaseTimeEntity {
 	public void markFull() {
 		this.status = RoomStatus.FULL;
 	}
+
+	public void markOpen() {
+		this.status = RoomStatus.OPEN;
+	}
 }

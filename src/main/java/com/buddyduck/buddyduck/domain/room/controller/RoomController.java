@@ -5,6 +5,7 @@ import com.buddyduck.buddyduck.domain.room.dto.CreateRoomResponse;
 import com.buddyduck.buddyduck.domain.room.dto.MyRoomListResponse;
 import com.buddyduck.buddyduck.domain.room.dto.OpenChatResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDetailResponse;
+import com.buddyduck.buddyduck.domain.room.dto.RoomLeaveResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListResponse;
 import com.buddyduck.buddyduck.domain.room.service.RoomService;
 import com.buddyduck.buddyduck.global.apiPayload.ApiResponse;
@@ -13,6 +14,7 @@ import com.buddyduck.buddyduck.global.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,5 +76,13 @@ public class RoomController {
 		@AuthenticationPrincipal UserPrincipal principal
 	) {
 		return ApiResponse.onSuccess(GeneralSuccessCode.OK, roomService.getOpenChat(roomId, principal.userId()));
+	}
+
+	@DeleteMapping("/rooms/{roomId}/members/me")
+	public ApiResponse<RoomLeaveResponse> leaveRoom(
+		@PathVariable Long roomId,
+		@AuthenticationPrincipal UserPrincipal principal
+	) {
+		return ApiResponse.onSuccess(GeneralSuccessCode.OK, roomService.leaveRoom(roomId, principal.userId()));
 	}
 }

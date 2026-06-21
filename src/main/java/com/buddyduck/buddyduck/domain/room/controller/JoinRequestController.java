@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.room.controller;
 
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestApproveResponse;
+import com.buddyduck.buddyduck.domain.room.dto.JoinRequestCancelResponse;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestCreateRequest;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestCreateResponse;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestDecisionResponse;
@@ -14,6 +15,7 @@ import com.buddyduck.buddyduck.global.security.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,6 +51,17 @@ public class JoinRequestController {
 		return ApiResponse.onSuccess(
 			GeneralSuccessCode.OK,
 			joinRequestService.getMyJoinRequest(roomId, principal.userId())
+		);
+	}
+
+	@DeleteMapping("/me")
+	public ApiResponse<JoinRequestCancelResponse> cancelMyJoinRequest(
+		@PathVariable Long roomId,
+		@AuthenticationPrincipal UserPrincipal principal
+	) {
+		return ApiResponse.onSuccess(
+			GeneralSuccessCode.OK,
+			joinRequestService.cancelMyJoinRequest(roomId, principal.userId())
 		);
 	}
 

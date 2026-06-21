@@ -8,6 +8,7 @@ import com.buddyduck.buddyduck.domain.room.service.RoomService;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftRouteSegmentRequest;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftRouteSegmentResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftScheduleRequest;
+import com.buddyduck.buddyduck.domain.schedule.dto.DraftScheduleRecommendationRequest;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftScheduleResponse;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftSlotRequest;
 import com.buddyduck.buddyduck.domain.schedule.dto.DraftSlotResponse;
@@ -66,6 +67,7 @@ public class ScheduleService {
 	private final RoomMemberRepository roomMemberRepository;
 	private final RoomService roomService;
 	private final RouteEstimator routeEstimator;
+	private final ScheduleRouteRecommendationService scheduleRouteRecommendationService;
 	private final TransactionTemplate transactionTemplate;
 
 	@Transactional(readOnly = true)
@@ -94,6 +96,44 @@ public class ScheduleService {
 			context.placesById()
 		);
 		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), request, resolvedRouteSegments);
+
+		return new DraftScheduleResponse(
+			draftTimeline.fitStatus(),
+			ScheduleDateTimeFormatter.format(draftTimeline.recommendedStartAt()),
+			ScheduleDateTimeFormatter.format(draftTimeline.effectiveStartAt()),
+			ScheduleDateTimeFormatter.format(draftTimeline.targetArrivalAt()),
+			draftTimeline.overrunMinutes(),
+			draftTimeline.spareMinutes(),
+			draftTimeline.slots().stream().map(ResolvedDraftSlot::toResponse).toList(),
+			resolvedRouteSegments.stream().map(ResolvedDraftRouteSegment::toResponse).toList(),
+			List.of()
+		);
+	}
+
+	public DraftScheduleResponse recommendDraft(
+		Long scheduleId,
+		Long userId,
+		DraftScheduleRecommendationRequest request
+	) {
+		DraftRecommendationContext context = loadDraftRecommendationContext(scheduleId, userId, request);
+		ScheduleRouteRecommendationService.RouteRecommendation recommendation = scheduleRouteRecommendationService.recommend(
+			request.slots(),
+			context.placesById(),
+			request.recommendationMode()
+		);
+		DraftScheduleRequest draftRequest = new DraftScheduleRequest(
+			request.arrivalBufferMinutes(),
+			request.customStartAt(),
+			request.targetArrivalAt(),
+			recommendation.slots(),
+			recommendation.routeSegments()
+		);
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments = resolveRouteSegments(
+			draftRequest.routeSegments(),
+			draftSlotsByClientId(draftRequest),
+			context.placesById()
+		);
+		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), draftRequest, resolvedRouteSegments);
 
 		return new DraftScheduleResponse(
 			draftTimeline.fitStatus(),
@@ -140,6 +180,20 @@ public class ScheduleService {
 				draftSlotsByClientId(request),
 				findPlacesById(request.slots())
 			);
+		}));
+	}
+
+	private DraftRecommendationContext loadDraftRecommendationContext(
+		Long scheduleId,
+		Long userId,
+		DraftScheduleRecommendationRequest request
+	) {
+		return Objects.requireNonNull(transactionTemplate.execute(status -> {
+			Schedule schedule = getScheduleOrThrow(scheduleId);
+			requireRoomAccess(schedule.getRoom(), userId);
+			validateDraftSlots(request.slots());
+			Map<Long, Place> placesById = findPlacesById(request.slots());
+			return new DraftRecommendationContext(schedule, placesById);
 		}));
 	}
 
@@ -502,13 +556,10 @@ public class ScheduleService {
 	}
 
 	private void validateDraft(DraftScheduleRequest request) {
-		Set<String> slotClientIds = new HashSet<>();
-		Set<Integer> slotOrders = new HashSet<>();
-		for (DraftSlotRequest slot : request.slots()) {
-			if (!slotClientIds.add(slot.clientId()) || !slotOrders.add(slot.order())) {
-				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
-			}
-		}
+		validateDraftSlots(request.slots());
+		Set<String> slotClientIds = request.slots().stream()
+			.map(DraftSlotRequest::clientId)
+			.collect(Collectors.toSet());
 
 		List<DraftSlotRequest> sortedSlots = request.slots().stream()
 			.sorted(Comparator.comparing(DraftSlotRequest::order))
@@ -534,6 +585,22 @@ public class ScheduleService {
 				sortedSlots.get(index).clientId()
 			);
 			if (!routeEdges.contains(expectedEdge)) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
+		}
+	}
+
+	private void validateDraftSlots(List<DraftSlotRequest> slots) {
+		if (slots == null) {
+			throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+		}
+		Set<String> slotClientIds = new HashSet<>();
+		Set<Integer> slotOrders = new HashSet<>();
+		for (DraftSlotRequest slot : slots) {
+			if (slot == null || slot.clientId() == null || slot.order() == null) {
+				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
+			}
+			if (!slotClientIds.add(slot.clientId()) || !slotOrders.add(slot.order())) {
 				throw new ProjectException(GeneralErrorCode.BAD_REQUEST);
 			}
 		}
@@ -589,6 +656,12 @@ public class ScheduleService {
 	private record DraftCalculationContext(
 		Schedule schedule,
 		Map<String, DraftSlotRequest> draftSlotsByClientId,
+		Map<Long, Place> placesById
+	) {
+	}
+
+	private record DraftRecommendationContext(
+		Schedule schedule,
 		Map<Long, Place> placesById
 	) {
 	}

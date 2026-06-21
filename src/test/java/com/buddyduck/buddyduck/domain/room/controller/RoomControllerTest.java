@@ -1,6 +1,7 @@
 package com.buddyduck.buddyduck.domain.room.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -313,6 +314,28 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 입장_신청을_취소하면_다시_신청할_수_있다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		insertJoinRequest(roomId, applicant.getId(), "처음 신청");
+
+		mockMvc.perform(delete("/api/rooms/{roomId}/join-requests/me", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.status").value("NOT_REQUESTED"));
+
+		mockMvc.perform(get("/api/rooms/{roomId}/join-requests/me", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant)))
+			.andExpect(status().isNotFound());
+
+		mockMvc.perform(post("/api/rooms/{roomId}/join-requests", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of("message", "다시 신청"))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.status").value("PENDING"));
+	}
+
+	@Test
 	void 입장_신청을_거절한다() throws Exception {
 		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
 		Long requestId = insertJoinRequest(roomId, applicant.getId(), "같이 이동하고 싶어요");
@@ -322,6 +345,47 @@ class RoomControllerTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.result.requestId").value(requestId))
 			.andExpect(jsonPath("$.result.status").value("REJECTED"));
+	}
+
+	@Test
+	void 멤버가_방을_나가면_오픈채팅을_볼_수_없고_다시_신청할_수_있다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 2);
+		Long requestId = insertJoinRequest(roomId, applicant.getId(), "같이 이동하고 싶어요");
+		insertMember(roomId, applicant.getId(), "MEMBER");
+		jdbcTemplate.update("UPDATE join_requests SET status = 'APPROVED' WHERE id = ?", requestId);
+		jdbcTemplate.update("UPDATE rooms SET status = 'FULL' WHERE id = ?", roomId);
+
+		mockMvc.perform(delete("/api/rooms/{roomId}/members/me", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.status").value("LEFT"));
+
+		mockMvc.perform(get("/api/rooms/{roomId}/open-chat", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant)))
+			.andExpect(status().isForbidden());
+
+		mockMvc.perform(get("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(visitor)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.roomStatus").value("OPEN"))
+			.andExpect(jsonPath("$.result.memberCount").value(1));
+
+		mockMvc.perform(post("/api/rooms/{roomId}/join-requests", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of("message", "다시 신청"))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.status").value("PENDING"));
+	}
+
+	@Test
+	void 방장은_방_나가기를_할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+
+		mockMvc.perform(delete("/api/rooms/{roomId}/members/me", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("COMMON403"));
 	}
 
 	@Test

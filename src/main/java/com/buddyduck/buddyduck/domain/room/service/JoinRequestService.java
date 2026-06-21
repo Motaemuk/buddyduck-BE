@@ -3,6 +3,7 @@ package com.buddyduck.buddyduck.domain.room.service;
 import com.buddyduck.buddyduck.domain.concert.enums.InterestTag;
 import com.buddyduck.buddyduck.domain.concert.repository.ConcertInterestTagRepository;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestApproveResponse;
+import com.buddyduck.buddyduck.domain.room.dto.JoinRequestCancelResponse;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestCreateRequest;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestCreateResponse;
 import com.buddyduck.buddyduck.domain.room.dto.JoinRequestDecisionResponse;
@@ -68,6 +69,19 @@ public class JoinRequestService {
 		return joinRequestRepository.findByRoomIdAndUserId(roomId, userId)
 			.map(request -> new MyJoinRequestStatusResponse(request.getStatus().name(), request.getMessage()))
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
+	}
+
+	@Transactional
+	public JoinRequestCancelResponse cancelMyJoinRequest(Long roomId, Long userId) {
+		roomService.getRoomOrThrow(roomId);
+		JoinRequest joinRequest = joinRequestRepository.findByRoomIdAndUserId(roomId, userId)
+			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
+		if (joinRequest.getStatus() != JoinRequestStatus.PENDING) {
+			throw new ProjectException(RoomErrorCode.INVALID_JOIN_STATUS);
+		}
+
+		joinRequestRepository.delete(joinRequest);
+		return new JoinRequestCancelResponse("NOT_REQUESTED");
 	}
 
 	@Transactional(readOnly = true)

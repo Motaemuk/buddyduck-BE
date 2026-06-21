@@ -40,6 +40,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -155,26 +156,41 @@ public class RoomService {
 	public MyRoomListResponse getMyRooms(Long userId, String tab) {
 		getUserOrThrow(userId);
 		MyRoomTab roomTab = parseMyRoomTab(tab);
-		List<MyRoomItemResponse> items = new ArrayList<>();
+		List<MyRoomSource> sources = new ArrayList<>();
 
 		if (roomTab.includes(MyRoomTab.HOSTED)) {
 			roomRepository.findAllByHostUserIdOrderByCreatedAtDesc(userId)
-				.forEach(room -> items.add(toMyRoomItem(room, "HOST", "APPROVED")));
+				.forEach(room -> sources.add(new MyRoomSource(room, "HOST", "APPROVED")));
 		}
 
 		if (roomTab.includes(MyRoomTab.JOINED)) {
 			roomMemberRepository.findAllByUserIdOrderByJoinedAtDesc(userId)
 				.stream()
 				.filter(member -> member.getRole() == RoomMemberRole.MEMBER)
-				.forEach(member -> items.add(toMyRoomItem(member.getRoom(), "MEMBER", "APPROVED")));
+				.forEach(member -> sources.add(new MyRoomSource(member.getRoom(), "MEMBER", "APPROVED")));
 		}
 
 		if (roomTab.includes(MyRoomTab.PENDING)) {
 			joinRequestRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
 				.stream()
 				.filter(request -> request.getStatus() == JoinRequestStatus.PENDING)
-				.forEach(request -> items.add(toMyRoomItem(request.getRoom(), "VISITOR", request.getStatus().name())));
+				.forEach(request -> sources.add(new MyRoomSource(request.getRoom(), "VISITOR", request.getStatus().name())));
 		}
+
+		Set<Long> roomIds = sources.stream()
+			.map(source -> source.room().getId())
+			.collect(Collectors.toCollection(LinkedHashSet::new));
+		Map<Long, Long> memberCounts = countMembersByRoomIds(roomIds);
+		Map<Long, Long> pendingRequestCounts = countPendingRequestsByRoomIds(roomIds);
+		List<MyRoomItemResponse> items = sources.stream()
+			.map(source -> toMyRoomItem(
+				source.room(),
+				source.viewerRole(),
+				source.viewerJoinStatus(),
+				memberCounts.getOrDefault(source.room().getId(), 0L),
+				pendingRequestCounts.getOrDefault(source.room().getId(), 0L)
+			))
+			.toList();
 
 		return new MyRoomListResponse(items, 0, items.size(), false);
 	}
@@ -237,10 +253,15 @@ public class RoomService {
 		);
 	}
 
-	private MyRoomItemResponse toMyRoomItem(Room room, String viewerRole, String viewerJoinStatus) {
-		long memberCount = roomMemberRepository.countByRoomId(room.getId());
+	private MyRoomItemResponse toMyRoomItem(
+		Room room,
+		String viewerRole,
+		String viewerJoinStatus,
+		long memberCount,
+		long roomPendingRequestCount
+	) {
 		long pendingJoinRequestCount = "HOST".equals(viewerRole)
-			? joinRequestRepository.countByRoomIdAndStatus(room.getId(), JoinRequestStatus.PENDING)
+			? roomPendingRequestCount
 			: 0;
 
 		return new MyRoomItemResponse(
@@ -260,6 +281,30 @@ public class RoomService {
 			room.getMaxMembers(),
 			pendingJoinRequestCount
 		);
+	}
+
+	private Map<Long, Long> countMembersByRoomIds(Set<Long> roomIds) {
+		if (roomIds.isEmpty()) {
+			return Map.of();
+		}
+		return roomMemberRepository.countMembersByRoomIds(roomIds)
+			.stream()
+			.collect(Collectors.toMap(
+				RoomMemberRepository.RoomMemberCount::getRoomId,
+				RoomMemberRepository.RoomMemberCount::getMemberCount
+			));
+	}
+
+	private Map<Long, Long> countPendingRequestsByRoomIds(Set<Long> roomIds) {
+		if (roomIds.isEmpty()) {
+			return Map.of();
+		}
+		return joinRequestRepository.countRequestsByRoomIdsAndStatus(roomIds, JoinRequestStatus.PENDING)
+			.stream()
+			.collect(Collectors.toMap(
+				JoinRequestRepository.RoomPendingRequestCount::getRoomId,
+				JoinRequestRepository.RoomPendingRequestCount::getPendingRequestCount
+			));
 	}
 
 	private long calculateDaysUntilConcert(Room room) {
@@ -375,6 +420,9 @@ public class RoomService {
 	}
 
 	private record ViewerState(String role, String joinStatus) {
+	}
+
+	private record MyRoomSource(Room room, String viewerRole, String viewerJoinStatus) {
 	}
 
 	private enum MyRoomTab {

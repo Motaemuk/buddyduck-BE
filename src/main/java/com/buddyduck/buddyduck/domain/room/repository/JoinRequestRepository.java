@@ -2,9 +2,12 @@ package com.buddyduck.buddyduck.domain.room.repository;
 
 import com.buddyduck.buddyduck.domain.room.entity.JoinRequest;
 import com.buddyduck.buddyduck.domain.room.enums.JoinRequestStatus;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface JoinRequestRepository extends JpaRepository<JoinRequest, Long> {
 
@@ -19,4 +22,23 @@ public interface JoinRequestRepository extends JpaRepository<JoinRequest, Long> 
 	long countByUserIdAndStatus(Long userId, JoinRequestStatus status);
 
 	List<JoinRequest> findAllByUserIdOrderByCreatedAtDesc(Long userId);
+
+	@Query("""
+		select request.room.id as roomId, count(request.id) as pendingRequestCount
+		from JoinRequest request
+		where request.room.id in :roomIds
+		  and request.status = :status
+		group by request.room.id
+		""")
+	List<RoomPendingRequestCount> countRequestsByRoomIdsAndStatus(
+		@Param("roomIds") Collection<Long> roomIds,
+		@Param("status") JoinRequestStatus status
+	);
+
+	interface RoomPendingRequestCount {
+
+		Long getRoomId();
+
+		Long getPendingRequestCount();
+	}
 }

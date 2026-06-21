@@ -1,9 +1,12 @@
 package com.buddyduck.buddyduck.domain.room.repository;
 
 import com.buddyduck.buddyduck.domain.room.entity.RoomMember;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface RoomMemberRepository extends JpaRepository<RoomMember, Long> {
 
@@ -16,4 +19,19 @@ public interface RoomMemberRepository extends JpaRepository<RoomMember, Long> {
 	long countByUserId(Long userId);
 
 	List<RoomMember> findAllByUserIdOrderByJoinedAtDesc(Long userId);
+
+	@Query("""
+		select member.room.id as roomId, count(member.id) as memberCount
+		from RoomMember member
+		where member.room.id in :roomIds
+		group by member.room.id
+		""")
+	List<RoomMemberCount> countMembersByRoomIds(@Param("roomIds") Collection<Long> roomIds);
+
+	interface RoomMemberCount {
+
+		Long getRoomId();
+
+		Long getMemberCount();
+	}
 }

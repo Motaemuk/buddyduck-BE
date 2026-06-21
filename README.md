@@ -154,7 +154,7 @@ src/main/resources/db/migration
 | 문서 | 용도 |
 | --- | --- |
 | [FE 연동 가이드](docs/fe-integration-guide.md) | FE 개발자가 Kakao OAuth, JWT, 프로필 완료, 지도/장소 API를 붙일 때 보는 문서 |
-| [일정 경로 계산 설계](docs/schedule-route-planner.md) | CB-11/CB-12 일정 편집에서 이동 거리, 시간, 택시요금을 계산하는 방식 |
+| [일정 경로 계산 설계](docs/schedule-route-planner.md) | CB-11/CB-12 일정 편집에서 이동 거리와 시간을 계산하고 추천 순서를 만드는 방식 |
 | [EC2 배포 가이드](docs/deploy-ec2.md) | EC2, Docker Compose, Caddy, RDS 기반 배포/운영 문서 |
 | [트러블슈팅](docs/troubleshooting.md) | CORS, Kakao OAuth, Docker, Caddy, KOPIS 등 자주 겪은 문제 해결 |
 
@@ -186,6 +186,7 @@ JAVA_HOME=$(/usr/libexec/java_home -v 17) ./gradlew test
 - 공연별 방 생성과 참여 요청/승인
 - Kakao Local 기반 장소 검색과 좌표 변환
 - 방별 일정 타임라인/지도/draft 저장 API와 이동 구간 계산
+- 일정 추천 순서 계산
 - EC2, Caddy, Docker, RDS 기반 배포
 
-추억방, 미디어 업로드, 알림, 추천 순서 최적화는 MVP 이후 또는 별도 브랜치 범위로 둡니다.
+추억방, 미디어 업로드, 알림, 방 나가기/신청 취소/방 수정·삭제·닫기, 로그아웃은 MVP 이후 또는 별도 브랜치 범위로 둡니다.

@@ -9,8 +9,6 @@ public record DraftRouteSegmentResponse(
 	RouteMode mode,
 	Integer distanceMeters,
 	Integer durationMinutes,
-	Integer taxiFareWon,
-	Integer tollFareWon,
 	String provider,
 	Boolean manuallyAdjusted
 ) {
@@ -22,8 +20,6 @@ public record DraftRouteSegmentResponse(
 			request.mode(),
 			estimate.distanceMeters(),
 			estimate.durationMinutes(),
-			estimate.taxiFareWon(),
-			estimate.tollFareWon(),
 			estimate.provider(),
 			estimate.manuallyAdjusted()
 		);

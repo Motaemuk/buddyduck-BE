@@ -131,16 +131,71 @@ class RoomControllerTest {
 	@Test
 	void 방_상세는_viewer_state와_permissions를_반환한다() throws Exception {
 		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		insertRoomTag(roomId, "CAFE_VISIT");
+		insertMember(roomId, applicant.getId(), "MEMBER");
+		Long scheduleId = insertSchedule(roomId);
+		insertScheduleSlot(
+			scheduleId,
+			meetingPlaceId,
+			"MEETING",
+			"MEETING",
+			"잠실역 5번 출구",
+			1,
+			LocalDateTime.of(2026, 6, 15, 14, 0),
+			LocalDateTime.of(2026, 6, 15, 14, 15),
+			15,
+			true
+		);
+		insertScheduleSlot(
+			scheduleId,
+			eventPlaceId,
+			"CONCERT",
+			"CONCERT",
+			"AURORA LIVE",
+			2,
+			LocalDateTime.of(2026, 6, 15, 19, 0),
+			LocalDateTime.of(2026, 6, 15, 21, 30),
+			0,
+			true
+		);
 
-		mockMvc.perform(get("/api/rooms/{roomId}", roomId)
+		MvcResult result = mockMvc.perform(get("/api/rooms/{roomId}", roomId)
 				.header(HttpHeaders.AUTHORIZATION, bearer(visitor)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.result.id").value(roomId))
+			.andExpect(jsonPath("$.result.title").value("굿즈 같이 갈 분"))
+			.andExpect(jsonPath("$.result.description").value("설명"))
+			.andExpect(jsonPath("$.result.roomStatus").value("OPEN"))
 			.andExpect(jsonPath("$.result.viewerRole").value("VISITOR"))
 			.andExpect(jsonPath("$.result.viewerJoinStatus").value("NOT_REQUESTED"))
 			.andExpect(jsonPath("$.result.permissions.canRequestJoin").value(true))
 			.andExpect(jsonPath("$.result.permissions.canViewOpenChat").value(false))
-			.andExpect(jsonPath("$.result.pendingRequestCount").value(0));
+			.andExpect(jsonPath("$.result.pendingRequestCount").value(0))
+			.andExpect(jsonPath("$.result.concert.id").value(concertId))
+			.andExpect(jsonPath("$.result.concert.title").value("AURORA LIVE"))
+			.andExpect(jsonPath("$.result.concert.startAt").value("2026-06-15T19:00:00+09:00"))
+			.andExpect(jsonPath("$.result.concert.venueName").value("KSPO Dome"))
+			.andExpect(jsonPath("$.result.meetingAt").value("2026-06-15T14:00:00+09:00"))
+			.andExpect(jsonPath("$.result.meetingPlaceName").value("잠실역 5번 출구"))
+			.andExpect(jsonPath("$.result.meetingPlaceAddress").value("서울 송파구 잠실동"))
+			.andExpect(jsonPath("$.result.roomTags[0]").value("GOODS_BUYING"))
+			.andExpect(jsonPath("$.result.roomTags[1]").value("CAFE_VISIT"))
+			.andExpect(jsonPath("$.result.memberCount").value(2))
+			.andExpect(jsonPath("$.result.maxMembers").value(4))
+			.andExpect(jsonPath("$.result.schedulePreview[0].slotType").value("MEETING"))
+			.andExpect(jsonPath("$.result.schedulePreview[0].placeName").value("잠실역 5번 출구"))
+			.andExpect(jsonPath("$.result.schedulePreview[1].slotType").value("CONCERT"))
+			.andExpect(jsonPath("$.result.schedulePreview[1].placeName").value("KSPO Dome"))
+			.andReturn();
+
+		JsonNode members = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("members");
+		JsonNode applicantMember = findMemberItem(members, "join_duck");
+		assertThat(applicantMember.path("role").asText()).isEqualTo("MEMBER");
+		assertThat(applicantMember.path("ageRange").asText()).isEqualTo("TWENTIES");
+		assertThat(applicantMember.path("gender").asText()).isEqualTo("FEMALE");
+		assertThat(applicantMember.path("sharedInterestCount").asInt()).isEqualTo(2);
 	}
 
 	@Test
@@ -436,6 +491,64 @@ class RoomControllerTest {
 		);
 	}
 
+	private void insertMember(Long roomId, Long userId, String role) {
+		jdbcTemplate.update(
+			"INSERT INTO room_members (room_id, user_id, role, joined_at) VALUES (?, ?, ?, ?)",
+			roomId,
+			userId,
+			role,
+			LocalDateTime.now()
+		);
+	}
+
+	private Long insertSchedule(Long roomId) {
+		jdbcTemplate.update("""
+			INSERT INTO schedules (room_id, created_at, updated_at) VALUES (?, ?, ?)
+			""",
+			roomId,
+			LocalDateTime.now(),
+			LocalDateTime.now()
+		);
+		return jdbcTemplate.queryForObject(
+			"SELECT id FROM schedules WHERE room_id = ?",
+			Long.class,
+			roomId
+		);
+	}
+
+	private void insertScheduleSlot(
+		Long scheduleId,
+		Long placeId,
+		String slotType,
+		String category,
+		String title,
+		int sortOrder,
+		LocalDateTime startAt,
+		LocalDateTime endAt,
+		int dwellMinutes,
+		boolean locked
+	) {
+		jdbcTemplate.update("""
+			INSERT INTO schedule_slots (
+				schedule_id, place_id, slot_type, category, title, sort_order,
+				start_at, end_at, dwell_minutes, locked, created_at, updated_at
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			""",
+			scheduleId,
+			placeId,
+			slotType,
+			category,
+			title,
+			sortOrder,
+			startAt,
+			endAt,
+			dwellMinutes,
+			locked,
+			LocalDateTime.now(),
+			LocalDateTime.now()
+		);
+	}
+
 	private Long insertJoinRequest(Long roomId, Long userId, String message) {
 		jdbcTemplate.update("""
 			INSERT INTO join_requests (
@@ -463,6 +576,15 @@ class RoomControllerTest {
 			}
 		}
 		throw new AssertionError("room not found: " + roomId);
+	}
+
+	private JsonNode findMemberItem(JsonNode items, String nickname) {
+		for (JsonNode item : items) {
+			if (item.path("nickname").asText().equals(nickname)) {
+				return item;
+			}
+		}
+		throw new AssertionError("member not found: " + nickname);
 	}
 
 	private String bearer(User user) {

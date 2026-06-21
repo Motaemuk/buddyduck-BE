@@ -110,4 +110,28 @@ public class Room extends BaseTimeEntity {
 	public void markOpen() {
 		this.status = RoomStatus.OPEN;
 	}
+
+	public void markClosed() {
+		this.status = RoomStatus.CLOSED;
+	}
+
+	public void update(
+		String title,
+		String description,
+		Integer maxMembers,
+		LocalDateTime meetingAt,
+		Place meetingPlace,
+		Place eventPlace,
+		String openChatUrl,
+		String openChatPassword
+	) {
+		this.title = title;
+		this.description = description;
+		this.maxMembers = maxMembers;
+		this.meetingAt = meetingAt;
+		this.meetingPlace = meetingPlace;
+		this.eventPlace = eventPlace;
+		this.openChatUrl = openChatUrl;
+		this.openChatPassword = openChatPassword;
+	}
 }

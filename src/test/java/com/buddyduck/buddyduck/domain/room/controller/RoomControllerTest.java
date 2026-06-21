@@ -3,6 +3,7 @@ package com.buddyduck.buddyduck.domain.room.controller;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -240,6 +241,183 @@ class RoomControllerTest {
 		assertThat(applicantMember.path("ageRange").asText()).isEqualTo("TWENTIES");
 		assertThat(applicantMember.path("gender").asText()).isEqualTo("FEMALE");
 		assertThat(applicantMember.path("sharedInterestCount").asInt()).isEqualTo(2);
+	}
+
+	@Test
+	void 방장은_방_정보를_수정할_수_있다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		Long scheduleId = insertSchedule(roomId);
+		insertScheduleSlot(
+			scheduleId,
+			meetingPlaceId,
+			"MEETING",
+			"MEETING",
+			"잠실역 5번 출구",
+			1,
+			LocalDateTime.of(2026, 6, 15, 14, 0),
+			LocalDateTime.of(2026, 6, 15, 14, 0),
+			0,
+			true
+		);
+		insertScheduleSlot(
+			scheduleId,
+			eventPlaceId,
+			"CONCERT",
+			"CONCERT",
+			"AURORA LIVE",
+			2,
+			LocalDateTime.of(2026, 6, 15, 19, 0),
+			LocalDateTime.of(2026, 6, 15, 21, 30),
+			0,
+			true
+		);
+		insertScheduleSlot(
+			scheduleId,
+			meetingPlaceId,
+			"MEETING",
+			"MEETING",
+			"사용자 지정 집합",
+			3,
+			LocalDateTime.of(2026, 6, 15, 13, 30),
+			LocalDateTime.of(2026, 6, 15, 13, 30),
+			0,
+			false
+		);
+
+		mockMvc.perform(patch("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(updateRoomPayload(5))))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.roomId").value(roomId))
+			.andExpect(jsonPath("$.result.status").value("OPEN"));
+
+		mockMvc.perform(get("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(visitor)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.title").value("수정된 굿즈 동선 방"))
+			.andExpect(jsonPath("$.result.description").value("수정된 설명입니다."))
+			.andExpect(jsonPath("$.result.meetingAt").value("2026-06-15T15:00:00+09:00"))
+			.andExpect(jsonPath("$.result.meetingPlaceName").value("잠실 종합운동장역"))
+			.andExpect(jsonPath("$.result.maxMembers").value(5))
+			.andExpect(jsonPath("$.result.roomTags[0]").value("MEAL_TOGETHER"))
+			.andExpect(jsonPath("$.result.schedulePreview[0].placeName").value("잠실 종합운동장역"))
+			.andExpect(jsonPath("$.result.schedulePreview[0].startAt").value("2026-06-15T15:00:00+09:00"));
+
+		String customSlotTitle = jdbcTemplate.queryForObject(
+			"SELECT title FROM schedule_slots WHERE schedule_id = ? AND sort_order = 3",
+			String.class,
+			scheduleId
+		);
+		Long customSlotPlaceId = jdbcTemplate.queryForObject(
+			"SELECT place_id FROM schedule_slots WHERE schedule_id = ? AND sort_order = 3",
+			Long.class,
+			scheduleId
+		);
+		assertThat(customSlotTitle).isEqualTo("사용자 지정 집합");
+		assertThat(customSlotPlaceId).isEqualTo(meetingPlaceId);
+	}
+
+	@Test
+	void 방장이_아니면_방_정보를_수정할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+
+		mockMvc.perform(patch("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(updateRoomPayload(5))))
+			.andExpect(status().isForbidden())
+			.andExpect(jsonPath("$.code").value("COMMON403"));
+	}
+
+	@Test
+	void 현재_멤버_수보다_작게_정원을_수정할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		insertMember(roomId, applicant.getId(), "MEMBER");
+
+		mockMvc.perform(patch("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(updateRoomPayload(1))))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON400"));
+	}
+
+	@Test
+	void 방_태그에_null이_있으면_방_정보를_수정할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+		String invalidPayload = """
+			{
+			  "title": "수정된 굿즈 동선 방",
+			  "description": "수정된 설명입니다.",
+			  "maxMembers": 5,
+			  "roomTags": [null],
+			  "meetingAt": "2026-06-15T15:00:00+09:00",
+			  "meetingPlace": {
+			    "name": "잠실 종합운동장역",
+			    "address": "서울 송파구 올림픽로 지하 23",
+			    "lat": 37.510,
+			    "lng": 127.073,
+			    "provider": "KAKAO_ADDRESS"
+			  },
+			  "eventPlace": {
+			    "name": "KSPO Dome",
+			    "address": "서울 송파구 올림픽로 424",
+			    "lat": 37.519,
+			    "lng": 127.127,
+			    "provider": "CONCERT"
+			  },
+			  "openChatUrl": "https://open.kakao.com/o/updated",
+			  "openChatPassword": "5678"
+			}
+			""";
+
+		mockMvc.perform(patch("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(invalidPayload))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("COMMON400"));
+	}
+
+	@Test
+	void 방장은_방을_닫을_수_있고_닫힌_방에는_신청할_수_없다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+
+		mockMvc.perform(patch("/api/rooms/{roomId}/close", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.roomId").value(roomId))
+			.andExpect(jsonPath("$.result.status").value("CLOSED"));
+
+		mockMvc.perform(get("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(visitor)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.roomStatus").value("CLOSED"))
+			.andExpect(jsonPath("$.result.permissions.canRequestJoin").value(false));
+
+		mockMvc.perform(post("/api/rooms/{roomId}/join-requests", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(applicant))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(Map.of("message", "신청합니다"))))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("ROOM01"));
+	}
+
+	@Test
+	void 방_삭제는_방을_닫힌_상태로_전환한다() throws Exception {
+		Long roomId = insertRoom(host, "굿즈 같이 갈 분", 4);
+
+		mockMvc.perform(delete("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.roomId").value(roomId))
+			.andExpect(jsonPath("$.result.status").value("CLOSED"));
+
+		mockMvc.perform(get("/api/rooms/{roomId}", roomId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(visitor)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.roomStatus").value("CLOSED"));
 	}
 
 	@Test
@@ -543,6 +721,32 @@ class RoomControllerTest {
 			),
 			"openChatUrl", "https://open.kakao.com/o/test",
 			"openChatPassword", "1234"
+		);
+	}
+
+	private Map<String, Object> updateRoomPayload(int maxMembers) {
+		return Map.of(
+			"title", "수정된 굿즈 동선 방",
+			"description", "수정된 설명입니다.",
+			"maxMembers", maxMembers,
+			"roomTags", List.of("MEAL_TOGETHER"),
+			"meetingAt", "2026-06-15T15:00:00+09:00",
+			"meetingPlace", Map.of(
+				"name", "잠실 종합운동장역",
+				"address", "서울 송파구 올림픽로 지하 23",
+				"lat", 37.510,
+				"lng", 127.073,
+				"provider", "KAKAO_ADDRESS"
+			),
+			"eventPlace", Map.of(
+				"name", "KSPO Dome",
+				"address", "서울 송파구 올림픽로 424",
+				"lat", 37.519,
+				"lng", 127.127,
+				"provider", "CONCERT"
+			),
+			"openChatUrl", "https://open.kakao.com/o/updated",
+			"openChatPassword", "5678"
 		);
 	}
 

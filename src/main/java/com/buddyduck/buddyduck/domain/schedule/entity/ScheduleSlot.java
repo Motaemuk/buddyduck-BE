@@ -99,4 +99,11 @@ public class ScheduleSlot extends BaseTimeEntity {
 		slot.locked = locked;
 		return slot;
 	}
+
+	public void updateAnchor(Place place, String title, LocalDateTime startAt, LocalDateTime endAt) {
+		this.place = place;
+		this.title = title;
+		this.startAt = startAt;
+		this.endAt = endAt;
+	}
 }

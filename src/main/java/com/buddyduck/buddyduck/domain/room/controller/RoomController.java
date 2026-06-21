@@ -7,6 +7,8 @@ import com.buddyduck.buddyduck.domain.room.dto.OpenChatResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomDetailResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomLeaveResponse;
 import com.buddyduck.buddyduck.domain.room.dto.RoomListResponse;
+import com.buddyduck.buddyduck.domain.room.dto.RoomManagementResponse;
+import com.buddyduck.buddyduck.domain.room.dto.UpdateRoomRequest;
 import com.buddyduck.buddyduck.domain.room.service.RoomService;
 import com.buddyduck.buddyduck.global.apiPayload.ApiResponse;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralSuccessCode;
@@ -17,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -84,5 +87,30 @@ public class RoomController {
 		@AuthenticationPrincipal UserPrincipal principal
 	) {
 		return ApiResponse.onSuccess(GeneralSuccessCode.OK, roomService.leaveRoom(roomId, principal.userId()));
+	}
+
+	@PatchMapping("/rooms/{roomId}")
+	public ApiResponse<RoomManagementResponse> updateRoom(
+		@PathVariable Long roomId,
+		@AuthenticationPrincipal UserPrincipal principal,
+		@Valid @RequestBody UpdateRoomRequest request
+	) {
+		return ApiResponse.onSuccess(GeneralSuccessCode.OK, roomService.updateRoom(roomId, principal.userId(), request));
+	}
+
+	@PatchMapping("/rooms/{roomId}/close")
+	public ApiResponse<RoomManagementResponse> closeRoom(
+		@PathVariable Long roomId,
+		@AuthenticationPrincipal UserPrincipal principal
+	) {
+		return ApiResponse.onSuccess(GeneralSuccessCode.OK, roomService.closeRoom(roomId, principal.userId()));
+	}
+
+	@DeleteMapping("/rooms/{roomId}")
+	public ApiResponse<RoomManagementResponse> deleteRoom(
+		@PathVariable Long roomId,
+		@AuthenticationPrincipal UserPrincipal principal
+	) {
+		return ApiResponse.onSuccess(GeneralSuccessCode.OK, roomService.deleteRoom(roomId, principal.userId()));
 	}
 }

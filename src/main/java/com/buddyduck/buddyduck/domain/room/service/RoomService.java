@@ -34,6 +34,8 @@ import com.buddyduck.buddyduck.domain.room.repository.RoomRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomTagRepository;
 import com.buddyduck.buddyduck.domain.schedule.entity.Schedule;
 import com.buddyduck.buddyduck.domain.schedule.entity.ScheduleSlot;
+import com.buddyduck.buddyduck.domain.schedule.enums.SlotCategory;
+import com.buddyduck.buddyduck.domain.schedule.enums.SlotType;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleSlotRepository;
 import com.buddyduck.buddyduck.domain.user.entity.User;
@@ -100,6 +102,7 @@ public class RoomService {
 			.map(tag -> RoomTag.create(room, tag))
 			.toList());
 		Schedule schedule = scheduleRepository.save(Schedule.create(room));
+		createDefaultScheduleSlots(schedule, room);
 
 		return new CreateRoomResponse(room.getId(), schedule.getId());
 	}
@@ -339,6 +342,33 @@ public class RoomService {
 		LocalDate today = LocalDate.now(KST);
 		LocalDate concertDate = room.getConcert().getStartAt().toLocalDate();
 		return ChronoUnit.DAYS.between(today, concertDate);
+	}
+
+	private void createDefaultScheduleSlots(Schedule schedule, Room room) {
+		scheduleSlotRepository.save(ScheduleSlot.create(
+			schedule,
+			room.getMeetingPlace(),
+			SlotType.MEETING,
+			SlotCategory.MEETING,
+			room.getMeetingPlace().getName(),
+			1,
+			room.getMeetingAt(),
+			room.getMeetingAt(),
+			0,
+			true
+		));
+		scheduleSlotRepository.save(ScheduleSlot.create(
+			schedule,
+			room.getEventPlace(),
+			SlotType.CONCERT,
+			SlotCategory.CONCERT,
+			room.getConcert().getTitle(),
+			2,
+			room.getConcert().getStartAt(),
+			room.getConcert().getEndAt() == null ? room.getConcert().getStartAt() : room.getConcert().getEndAt(),
+			0,
+			true
+		));
 	}
 
 	private List<RoomDetailMemberResponse> toRoomDetailMembers(Room room, List<InterestTag> roomTags) {

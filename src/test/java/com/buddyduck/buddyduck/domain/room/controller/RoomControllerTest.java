@@ -88,6 +88,7 @@ class RoomControllerTest {
 
 		JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
 		long roomId = response.path("result").path("roomId").asLong();
+		long scheduleId = response.path("result").path("scheduleId").asLong();
 
 		Integer hostMemberCount = jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM room_members WHERE room_id = ? AND user_id = ? AND role = 'HOST'",
@@ -96,6 +97,25 @@ class RoomControllerTest {
 			host.getId()
 		);
 		assertThat(hostMemberCount).isEqualTo(1);
+
+		Integer slotCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM schedule_slots WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
+		assertThat(slotCount).isEqualTo(2);
+		assertThat(slotValue(scheduleId, 1, "slot_type", String.class)).isEqualTo("MEETING");
+		assertThat(slotValue(scheduleId, 1, "category", String.class)).isEqualTo("MEETING");
+		assertThat(slotValue(scheduleId, 1, "title", String.class)).isEqualTo("잠실역 5번 출구");
+		assertThat(slotValue(scheduleId, 1, "place_id", Long.class)).isEqualTo(meetingPlaceId);
+		assertThat(slotValue(scheduleId, 1, "dwell_minutes", Integer.class)).isZero();
+		assertThat(slotValue(scheduleId, 1, "locked", Boolean.class)).isTrue();
+		assertThat(slotValue(scheduleId, 2, "slot_type", String.class)).isEqualTo("CONCERT");
+		assertThat(slotValue(scheduleId, 2, "category", String.class)).isEqualTo("CONCERT");
+		assertThat(slotValue(scheduleId, 2, "title", String.class)).isEqualTo("AURORA LIVE");
+		assertThat(slotPlaceName(scheduleId, 2)).isEqualTo("KSPO Dome");
+		assertThat(slotValue(scheduleId, 2, "dwell_minutes", Integer.class)).isZero();
+		assertThat(slotValue(scheduleId, 2, "locked", Boolean.class)).isTrue();
 	}
 
 	@Test
@@ -109,6 +129,26 @@ class RoomControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(payload)))
 			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void 공연_endAt이_없어도_방_생성시_concert_anchor의_종료시간은_시작시간으로_저장된다() throws Exception {
+		jdbcTemplate.update("UPDATE concerts SET end_at = NULL WHERE id = ?", concertId);
+
+		MvcResult result = mockMvc.perform(post("/api/rooms")
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(createRoomPayload())))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		long scheduleId = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("scheduleId")
+			.asLong();
+		LocalDateTime startAt = slotValue(scheduleId, 2, "start_at", LocalDateTime.class);
+		LocalDateTime endAt = slotValue(scheduleId, 2, "end_at", LocalDateTime.class);
+		assertThat(endAt).isEqualTo(startAt);
 	}
 
 	@Test
@@ -585,6 +625,28 @@ class RoomControllerTest {
 			}
 		}
 		throw new AssertionError("member not found: " + nickname);
+	}
+
+	private <T> T slotValue(Long scheduleId, int sortOrder, String column, Class<T> type) {
+		return jdbcTemplate.queryForObject(
+			"SELECT " + column + " FROM schedule_slots WHERE schedule_id = ? AND sort_order = ?",
+			type,
+			scheduleId,
+			sortOrder
+		);
+	}
+
+	private String slotPlaceName(Long scheduleId, int sortOrder) {
+		return jdbcTemplate.queryForObject("""
+			SELECT places.name
+			FROM schedule_slots
+			JOIN places ON places.id = schedule_slots.place_id
+			WHERE schedule_slots.schedule_id = ? AND schedule_slots.sort_order = ?
+			""",
+			String.class,
+			scheduleId,
+			sortOrder
+		);
 	}
 
 	private String bearer(User user) {

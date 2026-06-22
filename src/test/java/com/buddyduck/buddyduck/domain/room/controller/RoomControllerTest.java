@@ -121,6 +121,22 @@ class RoomControllerTest {
 		assertThat(slotPlaceName(scheduleId, 2)).isEqualTo("KSPO Dome");
 		assertThat(slotValue(scheduleId, 2, "dwell_minutes", Integer.class)).isZero();
 		assertThat(slotValue(scheduleId, 2, "locked", Boolean.class)).isTrue();
+
+		Integer routeCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM route_segments WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
+		assertThat(routeCount).isEqualTo(1);
+		Long meetingSlotId = slotValue(scheduleId, 1, "id", Long.class);
+		Long concertSlotId = slotValue(scheduleId, 2, "id", Long.class);
+		assertThat(routeValue(scheduleId, "from_slot_id", Long.class)).isEqualTo(meetingSlotId);
+		assertThat(routeValue(scheduleId, "to_slot_id", Long.class)).isEqualTo(concertSlotId);
+		assertThat(routeValue(scheduleId, "mode", String.class)).isEqualTo("WALK");
+		assertThat(routeValue(scheduleId, "distance_meters", Integer.class)).isPositive();
+		assertThat(routeValue(scheduleId, "duration_minutes", Integer.class)).isPositive();
+		assertThat(routeValue(scheduleId, "provider", String.class)).isEqualTo("FALLBACK_STRAIGHT_LINE");
+		assertThat(routeValue(scheduleId, "manually_adjusted", Boolean.class)).isFalse();
 	}
 
 	@Test
@@ -989,6 +1005,14 @@ class RoomControllerTest {
 			type,
 			scheduleId,
 			sortOrder
+		);
+	}
+
+	private <T> T routeValue(Long scheduleId, String column, Class<T> type) {
+		return jdbcTemplate.queryForObject(
+			"SELECT " + column + " FROM route_segments WHERE schedule_id = ?",
+			type,
+			scheduleId
 		);
 	}
 

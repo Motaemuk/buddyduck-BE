@@ -247,6 +247,35 @@ class ScheduleControllerTest {
 	}
 
 	@Test
+	void draft_commit은_초과_일정을_저장하지_않는다() throws Exception {
+		ObjectNode payload = draftPayloadWithPlanningTimes(
+			"2026-06-15T14:20:00+09:00",
+			"2026-06-15T15:00:00+09:00"
+		);
+
+		mockMvc.perform(put("/api/schedules/{scheduleId}/draft/commit", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(payload)))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("SCHEDULE01"))
+			.andExpect(jsonPath("$.message").value("지금 일정을 전부 소화할 수 없습니다."));
+
+		Integer slotCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM schedule_slots WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
+		Integer routeCount = jdbcTemplate.queryForObject(
+			"SELECT COUNT(*) FROM route_segments WHERE schedule_id = ?",
+			Integer.class,
+			scheduleId
+		);
+		assertThat(slotCount).isEqualTo(0);
+		assertThat(routeCount).isEqualTo(0);
+	}
+
+	@Test
 	void draft_commit은_사용자_시작_시간을_저장하고_타임라인에_반영한다() throws Exception {
 		ObjectNode payload = draftPayloadWithPlanningTimes(
 			"2026-06-15T13:30:00+09:00",

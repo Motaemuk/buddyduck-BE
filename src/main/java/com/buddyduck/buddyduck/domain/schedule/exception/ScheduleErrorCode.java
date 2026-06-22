@@ -6,6 +6,11 @@ import org.springframework.http.HttpStatus;
 
 @Getter
 public enum ScheduleErrorCode implements BaseErrorCode {
+	SCHEDULE_OVERRUN(
+		HttpStatus.CONFLICT,
+		"SCHEDULE01",
+		"지금 일정을 전부 소화할 수 없습니다."
+	),
 	ROUTE_ESTIMATION_FAILED(
 		HttpStatus.BAD_GATEWAY,
 		"SCHEDULE_ROUTE_ESTIMATION_FAILED",

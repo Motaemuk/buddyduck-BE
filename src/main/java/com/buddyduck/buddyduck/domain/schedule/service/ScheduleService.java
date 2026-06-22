@@ -98,17 +98,7 @@ public class ScheduleService {
 		);
 		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), request, resolvedRouteSegments);
 
-		return new DraftScheduleResponse(
-			draftTimeline.fitStatus(),
-			ScheduleDateTimeFormatter.format(draftTimeline.recommendedStartAt()),
-			ScheduleDateTimeFormatter.format(draftTimeline.effectiveStartAt()),
-			ScheduleDateTimeFormatter.format(draftTimeline.targetArrivalAt()),
-			draftTimeline.overrunMinutes(),
-			draftTimeline.spareMinutes(),
-			draftTimeline.slots().stream().map(ResolvedDraftSlot::toResponse).toList(),
-			resolvedRouteSegments.stream().map(ResolvedDraftRouteSegment::toResponse).toList(),
-			List.of()
-		);
+		return toDraftScheduleResponse(draftTimeline, resolvedRouteSegments);
 	}
 
 	public DraftScheduleResponse recommendDraft(
@@ -136,6 +126,13 @@ public class ScheduleService {
 		);
 		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), draftRequest, resolvedRouteSegments);
 
+		return toDraftScheduleResponse(draftTimeline, resolvedRouteSegments);
+	}
+
+	private DraftScheduleResponse toDraftScheduleResponse(
+		DraftTimeline draftTimeline,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+	) {
 		return new DraftScheduleResponse(
 			draftTimeline.fitStatus(),
 			ScheduleDateTimeFormatter.format(draftTimeline.recommendedStartAt()),
@@ -157,7 +154,7 @@ public class ScheduleService {
 			context.placesById()
 		);
 		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), request, resolvedRouteSegments);
-		validateCommittable(draftTimeline);
+		validateCommittable(draftTimeline, resolvedRouteSegments);
 
 		return Objects.requireNonNull(transactionTemplate.execute(status -> saveDraft(
 			scheduleId,
@@ -168,9 +165,15 @@ public class ScheduleService {
 		)));
 	}
 
-	private void validateCommittable(DraftTimeline draftTimeline) {
+	private void validateCommittable(
+		DraftTimeline draftTimeline,
+		List<ResolvedDraftRouteSegment> resolvedRouteSegments
+	) {
 		if (draftTimeline.overrunMinutes() > 0) {
-			throw new ProjectException(ScheduleErrorCode.SCHEDULE_OVERRUN);
+			throw new ProjectException(
+				ScheduleErrorCode.SCHEDULE_OVERRUN,
+				toDraftScheduleResponse(draftTimeline, resolvedRouteSegments)
+			);
 		}
 	}
 

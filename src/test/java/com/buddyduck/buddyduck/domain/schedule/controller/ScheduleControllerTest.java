@@ -258,8 +258,19 @@ class ScheduleControllerTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(objectMapper.writeValueAsString(payload)))
 			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.isSuccess").value(false))
 			.andExpect(jsonPath("$.code").value("SCHEDULE01"))
-			.andExpect(jsonPath("$.message").value("지금 일정을 전부 소화할 수 없습니다."));
+			.andExpect(jsonPath("$.message").value("지금 일정을 전부 소화할 수 없습니다."))
+			.andExpect(jsonPath("$.result.fitStatus").value("OVERRUN"))
+			.andExpect(jsonPath("$.result.recommendedStartAt").value("2026-06-15T14:02:00+09:00"))
+			.andExpect(jsonPath("$.result.effectiveStartAt").value("2026-06-15T14:20:00+09:00"))
+			.andExpect(jsonPath("$.result.targetArrivalAt").value("2026-06-15T15:00:00+09:00"))
+			.andExpect(jsonPath("$.result.overrunMinutes").value(18))
+			.andExpect(jsonPath("$.result.spareMinutes").value(0))
+			.andExpect(jsonPath("$.result.slots[0].startAt").value("2026-06-15T14:20:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[1].startAt").value("2026-06-15T14:48:00+09:00"))
+			.andExpect(jsonPath("$.result.routeSegments[0].durationMinutes").value(18))
+			.andExpect(jsonPath("$.result.warnings").isArray());
 
 		Integer slotCount = jdbcTemplate.queryForObject(
 			"SELECT COUNT(*) FROM schedule_slots WHERE schedule_id = ?",

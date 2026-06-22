@@ -172,7 +172,7 @@ public class ScheduleService {
 		DraftScheduleRequest request
 	) {
 		return Objects.requireNonNull(transactionTemplate.execute(status -> {
-			Schedule schedule = getScheduleOrThrow(scheduleId);
+			Schedule schedule = getScheduleWithRoomAndConcertOrThrow(scheduleId);
 			requireRoomAccess(schedule.getRoom(), userId);
 			validateDraft(request);
 			return new DraftCalculationContext(
@@ -189,7 +189,7 @@ public class ScheduleService {
 		DraftScheduleRecommendationRequest request
 	) {
 		return Objects.requireNonNull(transactionTemplate.execute(status -> {
-			Schedule schedule = getScheduleOrThrow(scheduleId);
+			Schedule schedule = getScheduleWithRoomAndConcertOrThrow(scheduleId);
 			requireRoomAccess(schedule.getRoom(), userId);
 			validateDraftSlots(request.slots());
 			Map<Long, Place> placesById = findPlacesById(request.slots());
@@ -530,6 +530,11 @@ public class ScheduleService {
 
 	private Schedule getScheduleOrThrow(Long scheduleId) {
 		return scheduleRepository.findById(scheduleId)
+			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
+	}
+
+	private Schedule getScheduleWithRoomAndConcertOrThrow(Long scheduleId) {
+		return scheduleRepository.findByIdWithRoomAndConcert(scheduleId)
 			.orElseThrow(() -> new ProjectException(GeneralErrorCode.NOT_FOUND));
 	}
 

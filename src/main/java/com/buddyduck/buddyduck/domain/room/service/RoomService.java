@@ -36,11 +36,16 @@ import com.buddyduck.buddyduck.domain.room.repository.RoomMemberRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomRepository;
 import com.buddyduck.buddyduck.domain.room.repository.RoomTagRepository;
 import com.buddyduck.buddyduck.domain.schedule.entity.Schedule;
+import com.buddyduck.buddyduck.domain.schedule.entity.RouteSegment;
 import com.buddyduck.buddyduck.domain.schedule.entity.ScheduleSlot;
+import com.buddyduck.buddyduck.domain.schedule.enums.RouteMode;
 import com.buddyduck.buddyduck.domain.schedule.enums.SlotCategory;
 import com.buddyduck.buddyduck.domain.schedule.enums.SlotType;
+import com.buddyduck.buddyduck.domain.schedule.repository.RouteSegmentRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleSlotRepository;
+import com.buddyduck.buddyduck.domain.schedule.route.FallbackRouteEstimator;
+import com.buddyduck.buddyduck.domain.schedule.route.RouteEstimate;
 import com.buddyduck.buddyduck.domain.user.entity.User;
 import com.buddyduck.buddyduck.domain.user.repository.UserRepository;
 import com.buddyduck.buddyduck.global.apiPayload.code.GeneralErrorCode;
@@ -77,6 +82,8 @@ public class RoomService {
 	private final PlaceRepository placeRepository;
 	private final ScheduleRepository scheduleRepository;
 	private final ScheduleSlotRepository scheduleSlotRepository;
+	private final RouteSegmentRepository routeSegmentRepository;
+	private final FallbackRouteEstimator fallbackRouteEstimator;
 	private final UserRepository userRepository;
 
 	@Transactional
@@ -481,7 +488,7 @@ public class RoomService {
 	}
 
 	private void createDefaultScheduleSlots(Schedule schedule, Room room) {
-		scheduleSlotRepository.save(ScheduleSlot.create(
+		ScheduleSlot meetingSlot = scheduleSlotRepository.save(ScheduleSlot.create(
 			schedule,
 			room.getMeetingPlace(),
 			SlotType.MEETING,
@@ -493,7 +500,7 @@ public class RoomService {
 			0,
 			true
 		));
-		scheduleSlotRepository.save(ScheduleSlot.create(
+		ScheduleSlot concertSlot = scheduleSlotRepository.save(ScheduleSlot.create(
 			schedule,
 			room.getEventPlace(),
 			SlotType.CONCERT,
@@ -504,6 +511,27 @@ public class RoomService {
 			room.getConcert().getEndAt() == null ? room.getConcert().getStartAt() : room.getConcert().getEndAt(),
 			0,
 			true
+		));
+		createDefaultRouteSegment(schedule, meetingSlot, concertSlot);
+	}
+
+	private void createDefaultRouteSegment(Schedule schedule, ScheduleSlot meetingSlot, ScheduleSlot concertSlot) {
+		RouteEstimate estimate = fallbackRouteEstimator.estimate(
+			RouteMode.WALK,
+			meetingSlot.getPlace(),
+			concertSlot.getPlace()
+		);
+		routeSegmentRepository.save(RouteSegment.create(
+			schedule,
+			meetingSlot,
+			concertSlot,
+			RouteMode.WALK,
+			estimate.distanceMeters(),
+			estimate.durationMinutes(),
+			estimate.taxiFareWon(),
+			estimate.tollFareWon(),
+			estimate.provider(),
+			false
 		));
 	}
 

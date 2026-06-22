@@ -19,12 +19,12 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 public class GeneralExceptionAdvice {
 
 	@ExceptionHandler(ProjectException.class)
-	public ResponseEntity<ApiResponse<Void>> handleProjectException(ProjectException exception) {
+	public ResponseEntity<ApiResponse<Object>> handleProjectException(ProjectException exception) {
 		BaseErrorCode errorCode = exception.getErrorCode();
 
 		return ResponseEntity
 			.status(errorCode.getStatus())
-			.body(ApiResponse.onFailure(errorCode, null));
+			.body(ApiResponse.onFailure(errorCode, exception.getResult()));
 	}
 
 	@ExceptionHandler({MethodArgumentNotValidException.class, BindException.class})

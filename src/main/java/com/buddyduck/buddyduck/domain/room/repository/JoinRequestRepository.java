@@ -38,15 +38,13 @@ public interface JoinRequestRepository extends JpaRepository<JoinRequest, Long> 
 		from JoinRequest request
 		where request.user.id = :userId
 		  and request.status = :status
-		  and (
-		    (request.room.concert.endAt is not null and request.room.concert.endAt >= :now)
-		    or (request.room.concert.endAt is null and request.room.concert.startAt >= :now)
-		  )
+		  and request.room.status <> com.buddyduck.buddyduck.domain.room.enums.RoomStatus.CLOSED
+		  and request.room.concert.startAt >= :todayStart
 		""")
 	long countActiveByUserIdAndStatus(
 		@Param("userId") Long userId,
 		@Param("status") JoinRequestStatus status,
-		@Param("now") LocalDateTime now
+		@Param("todayStart") LocalDateTime todayStart
 	);
 
 	List<JoinRequest> findAllByUserIdOrderByCreatedAtDesc(Long userId);

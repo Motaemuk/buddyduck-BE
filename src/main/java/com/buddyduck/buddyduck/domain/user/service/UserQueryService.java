@@ -48,7 +48,7 @@ public class UserQueryService {
 	}
 
 	private UserProfileResponse toUserProfileResponse(User user) {
-		LocalDateTime now = LocalDateTime.now(KST);
+		LocalDateTime todayStart = LocalDateTime.now(KST).toLocalDate().atStartOfDay();
 		return new UserProfileResponse(
 			user.getId(),
 			user.getNickname(),
@@ -56,8 +56,8 @@ public class UserQueryService {
 			user.getGender(),
 			user.isProfileCompleted(),
 			user.getAvatarColor(),
-			roomMemberRepository.countActiveByUserId(user.getId(), now),
-			joinRequestRepository.countActiveByUserIdAndStatus(user.getId(), JoinRequestStatus.PENDING, now)
+			roomMemberRepository.countActiveByUserId(user.getId(), todayStart),
+			joinRequestRepository.countActiveByUserIdAndStatus(user.getId(), JoinRequestStatus.PENDING, todayStart)
 		);
 	}
 }

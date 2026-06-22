@@ -23,12 +23,10 @@ public interface RoomMemberRepository extends JpaRepository<RoomMember, Long> {
 		select count(member.id)
 		from RoomMember member
 		where member.user.id = :userId
-		  and (
-		    (member.room.concert.endAt is not null and member.room.concert.endAt >= :now)
-		    or (member.room.concert.endAt is null and member.room.concert.startAt >= :now)
-		  )
+		  and member.room.status <> com.buddyduck.buddyduck.domain.room.enums.RoomStatus.CLOSED
+		  and member.room.concert.startAt >= :todayStart
 		""")
-	long countActiveByUserId(@Param("userId") Long userId, @Param("now") LocalDateTime now);
+	long countActiveByUserId(@Param("userId") Long userId, @Param("todayStart") LocalDateTime todayStart);
 
 	List<RoomMember> findAllByRoomIdOrderByJoinedAtAscIdAsc(Long roomId);
 

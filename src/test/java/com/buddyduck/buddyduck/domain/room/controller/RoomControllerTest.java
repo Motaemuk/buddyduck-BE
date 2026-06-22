@@ -673,6 +673,59 @@ class RoomControllerTest {
 	}
 
 	@Test
+	void 내_방_목록은_공연_시작일이_지난_방을_제외한다() throws Exception {
+		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+		LocalDateTime activeStartAt = futureConcertStartAt();
+		Long activeConcertId = insertConcert("active-start-date-room-test-concert", activeStartAt, activeStartAt.plusHours(2));
+		Long pastStartConcertId = insertConcert(
+			"past-start-date-room-test-concert",
+			now.minusDays(1),
+			now.plusDays(1)
+		);
+		Long activeRoomId = insertRoom(host, activeConcertId, "아직 공연일이 남은 방", 4);
+		Long pastStartRoomId = insertRoom(host, pastStartConcertId, "공연 시작일이 지난 방", 4);
+
+		MvcResult result = mockMvc.perform(get("/api/me/rooms")
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("items");
+		assertThat(roomIds(items))
+			.contains(activeRoomId)
+			.doesNotContain(pastStartRoomId);
+	}
+
+	@Test
+	void 내_방_목록은_closed_방을_제외한다() throws Exception {
+		LocalDateTime activeStartAt = futureConcertStartAt();
+		Long activeConcertId = insertConcert("active-closed-room-test-concert", activeStartAt, activeStartAt.plusHours(2));
+		Long activeRoomId = insertRoom(host, activeConcertId, "아직 열린 방", 4);
+		Long closedHostedRoomId = insertRoom(host, activeConcertId, "닫힌 내가 만든 방", 4);
+		Long closedJoinedRoomId = insertRoom(visitor, activeConcertId, "닫힌 참여 방", 4);
+		Long closedPendingRoomId = insertRoom(visitor, activeConcertId, "닫힌 신청 방", 4);
+		insertMember(closedJoinedRoomId, host.getId(), "MEMBER");
+		insertJoinRequest(closedPendingRoomId, host.getId(), "닫힌 방 신청");
+		closeRoom(closedHostedRoomId);
+		closeRoom(closedJoinedRoomId);
+		closeRoom(closedPendingRoomId);
+
+		MvcResult result = mockMvc.perform(get("/api/me/rooms")
+				.header(HttpHeaders.AUTHORIZATION, bearer(host)))
+			.andExpect(status().isOk())
+			.andReturn();
+
+		JsonNode items = objectMapper.readTree(result.getResponse().getContentAsString())
+			.path("result")
+			.path("items");
+		assertThat(roomIds(items))
+			.contains(activeRoomId)
+			.doesNotContain(closedHostedRoomId, closedJoinedRoomId, closedPendingRoomId);
+	}
+
+	@Test
 	void 내_방_목록은_tab으로_대기중인_방만_필터링한다() throws Exception {
 		LocalDateTime activeStartAt = futureConcertStartAt();
 		Long activeConcertId = insertConcert("active-pending-room-test-concert", activeStartAt, activeStartAt.plusHours(2));
@@ -886,6 +939,10 @@ class RoomControllerTest {
 
 	private void insertRoomTag(Long roomId, String tag) {
 		jdbcTemplate.update("INSERT INTO room_tags (room_id, tag) VALUES (?, ?)", roomId, tag);
+	}
+
+	private void closeRoom(Long roomId) {
+		jdbcTemplate.update("UPDATE rooms SET status = 'CLOSED' WHERE id = ?", roomId);
 	}
 
 	private void insertInterestTag(Long userId, Long concertId, String tag) {

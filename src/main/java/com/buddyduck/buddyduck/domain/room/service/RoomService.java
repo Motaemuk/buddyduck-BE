@@ -204,7 +204,7 @@ public class RoomService {
 		if (roomTab.includes(MyRoomTab.HOSTED)) {
 			roomRepository.findAllByHostUserIdOrderByCreatedAtDesc(userId)
 				.stream()
-				.filter(room -> isActiveConcertRoom(room, now))
+				.filter(room -> isVisibleMyRoom(room, now))
 				.forEach(room -> sources.add(new MyRoomSource(room, "HOST", "APPROVED")));
 		}
 
@@ -212,7 +212,7 @@ public class RoomService {
 			roomMemberRepository.findAllByUserIdOrderByJoinedAtDesc(userId)
 				.stream()
 				.filter(member -> member.getRole() == RoomMemberRole.MEMBER)
-				.filter(member -> isActiveConcertRoom(member.getRoom(), now))
+				.filter(member -> isVisibleMyRoom(member.getRoom(), now))
 				.forEach(member -> sources.add(new MyRoomSource(member.getRoom(), "MEMBER", "APPROVED")));
 		}
 
@@ -220,7 +220,7 @@ public class RoomService {
 			joinRequestRepository.findAllByUserIdOrderByCreatedAtDesc(userId)
 				.stream()
 				.filter(request -> request.getStatus() == JoinRequestStatus.PENDING)
-				.filter(request -> isActiveConcertRoom(request.getRoom(), now))
+				.filter(request -> isVisibleMyRoom(request.getRoom(), now))
 				.forEach(request -> sources.add(new MyRoomSource(request.getRoom(), "VISITOR", request.getStatus().name())));
 		}
 
@@ -482,9 +482,12 @@ public class RoomService {
 	}
 
 	private boolean isActiveConcertRoom(Room room, LocalDateTime now) {
-		LocalDateTime visibleUntil = Optional.ofNullable(room.getConcert().getEndAt())
-			.orElse(room.getConcert().getStartAt());
-		return !visibleUntil.isBefore(now);
+		LocalDate concertDate = room.getConcert().getStartAt().toLocalDate();
+		return !concertDate.isBefore(now.toLocalDate());
+	}
+
+	private boolean isVisibleMyRoom(Room room, LocalDateTime now) {
+		return room.getStatus() != RoomStatus.CLOSED && isActiveConcertRoom(room, now);
 	}
 
 	private void createDefaultScheduleSlots(Schedule schedule, Room room) {

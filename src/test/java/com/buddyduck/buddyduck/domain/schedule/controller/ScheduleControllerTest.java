@@ -57,6 +57,7 @@ class ScheduleControllerTest {
 	private Long roomId;
 	private Long scheduleId;
 	private Long meetingPlaceId;
+	private Long eventPlaceId;
 	private Long cafePlaceId;
 	private Long farPlaceId;
 
@@ -68,7 +69,7 @@ class ScheduleControllerTest {
 		visitor = saveCompletedUser("visitor_duck");
 		Long concertId = insertConcert();
 		meetingPlaceId = insertPlace("잠실역 5번 출구", "서울 송파구 잠실동", "37.5130000", "127.1000000");
-		Long eventPlaceId = insertPlace("KSPO Dome", "서울 송파구 올림픽로 424", "37.5190000", "127.1270000");
+		eventPlaceId = insertPlace("KSPO Dome", "서울 송파구 올림픽로 424", "37.5190000", "127.1270000");
 		cafePlaceId = insertPlace("잠실 카페 무드", "서울 송파구 올림픽로 300", "37.5150000", "127.1020000");
 		farPlaceId = insertPlace("올림픽공원 굿즈샵", "서울 송파구 올림픽로 424", "37.5300000", "127.1300000");
 		roomId = insertRoom(concertId, eventPlaceId);
@@ -132,6 +133,21 @@ class ScheduleControllerTest {
 		);
 		assertThat(slotCount).isEqualTo(0);
 		assertThat(routeCount).isEqualTo(0);
+	}
+
+	@Test
+	void draft_preview는_목표_도착_시간이_없으면_공연_시작_시간으로_계산한다() throws Exception {
+		mockMvc.perform(post("/api/schedules/{scheduleId}/draft/recalculate", scheduleId)
+				.header(HttpHeaders.AUTHORIZATION, bearer(host))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(objectMapper.writeValueAsString(anchorOnlyDraftPayload())))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.targetArrivalAt").value("2026-06-15T18:30:00+09:00"))
+			.andExpect(jsonPath("$.result.slots[0].clientId").value("slot-auto-0"))
+			.andExpect(jsonPath("$.result.slots[1].clientId").value("slot-auto-1"))
+			.andExpect(jsonPath("$.result.routeSegments[0].fromClientId").value("slot-auto-0"))
+			.andExpect(jsonPath("$.result.routeSegments[0].toClientId").value("slot-auto-1"))
+			.andExpect(jsonPath("$.result.routeSegments[0].provider").value("FALLBACK_STRAIGHT_LINE"));
 	}
 
 	@Test
@@ -411,6 +427,45 @@ class ScheduleControllerTest {
 					"toClientId", "slot-cafe",
 					"mode", "WALK",
 					"durationMinutes", 18
+				)
+			)
+		);
+	}
+
+	private Map<String, Object> anchorOnlyDraftPayload() {
+		return Map.of(
+			"arrivalBufferMinutes", 30,
+			"slots", List.of(
+				Map.of(
+					"clientId", "slot-auto-0",
+					"slotId", 11,
+					"order", 1,
+					"title", "잠실역 5번 출구",
+					"placeId", meetingPlaceId,
+					"dwellMinutes", 10,
+					"locked", true,
+					"slotType", "MEETING",
+					"category", "MEETING"
+				),
+				Map.of(
+					"clientId", "slot-auto-1",
+					"slotId", 12,
+					"order", 2,
+					"title", "AURORA LIVE",
+					"placeId", eventPlaceId,
+					"dwellMinutes", 0,
+					"locked", true,
+					"slotType", "CONCERT",
+					"category", "CONCERT"
+				)
+			),
+			"routeSegments", List.of(
+				Map.of(
+					"fromClientId", "slot-auto-0",
+					"toClientId", "slot-auto-1",
+					"mode", "WALK",
+					"durationMinutes", 0,
+					"manuallyAdjusted", false
 				)
 			)
 		);

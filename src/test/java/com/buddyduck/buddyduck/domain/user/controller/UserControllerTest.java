@@ -163,6 +163,82 @@ class UserControllerTest {
 	}
 
 	@Test
+	void 내_프로필_방_수는_공연_시작일이_지난_방을_제외한다() throws Exception {
+		User user = userRepository.save(User.createKakao(
+			"12345",
+			"duck_fan",
+			AgeRange.TWENTIES,
+			UserGender.FEMALE
+		));
+		User host = userRepository.save(User.createKakao(
+			"67890",
+			"host_duck",
+			AgeRange.TWENTIES,
+			UserGender.FEMALE
+		));
+		LocalDateTime now = LocalDateTime.now(ZoneId.of("Asia/Seoul"));
+		Long activeConcertId = insertConcert();
+		Long pastStartConcertId = insertConcert(
+			"profile-past-start-concert",
+			now.minusDays(1),
+			now.plusDays(1)
+		);
+		Long meetingPlaceId = insertPlace("잠실역 5번 출구");
+		Long eventPlaceId = insertPlace("KSPO Dome");
+		Long activeJoinedRoomId = insertRoom(host.getId(), activeConcertId, meetingPlaceId, eventPlaceId, "참여중인 방");
+		Long activePendingRoomId = insertRoom(host.getId(), activeConcertId, meetingPlaceId, eventPlaceId, "대기중인 방");
+		Long pastStartJoinedRoomId = insertRoom(host.getId(), pastStartConcertId, meetingPlaceId, eventPlaceId, "시작일 지난 참여중인 방");
+		Long pastStartPendingRoomId = insertRoom(host.getId(), pastStartConcertId, meetingPlaceId, eventPlaceId, "시작일 지난 대기중인 방");
+		insertRoomMember(activeJoinedRoomId, user.getId(), "MEMBER");
+		insertRoomMember(pastStartJoinedRoomId, user.getId(), "MEMBER");
+		insertJoinRequest(activePendingRoomId, user.getId());
+		insertJoinRequest(pastStartPendingRoomId, user.getId());
+		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
+
+		mockMvc.perform(get("/api/users/me")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.participatingRoomCount").value(1))
+			.andExpect(jsonPath("$.result.pendingRoomCount").value(1));
+	}
+
+	@Test
+	void 내_프로필_방_수는_closed_방을_제외한다() throws Exception {
+		User user = userRepository.save(User.createKakao(
+			"12345",
+			"duck_fan",
+			AgeRange.TWENTIES,
+			UserGender.FEMALE
+		));
+		User host = userRepository.save(User.createKakao(
+			"67890",
+			"host_duck",
+			AgeRange.TWENTIES,
+			UserGender.FEMALE
+		));
+		Long concertId = insertConcert();
+		Long meetingPlaceId = insertPlace("잠실역 5번 출구");
+		Long eventPlaceId = insertPlace("KSPO Dome");
+		Long activeJoinedRoomId = insertRoom(host.getId(), concertId, meetingPlaceId, eventPlaceId, "참여중인 방");
+		Long activePendingRoomId = insertRoom(host.getId(), concertId, meetingPlaceId, eventPlaceId, "대기중인 방");
+		Long closedJoinedRoomId = insertRoom(host.getId(), concertId, meetingPlaceId, eventPlaceId, "닫힌 참여중인 방");
+		Long closedPendingRoomId = insertRoom(host.getId(), concertId, meetingPlaceId, eventPlaceId, "닫힌 대기중인 방");
+		insertRoomMember(activeJoinedRoomId, user.getId(), "MEMBER");
+		insertRoomMember(closedJoinedRoomId, user.getId(), "MEMBER");
+		insertJoinRequest(activePendingRoomId, user.getId());
+		insertJoinRequest(closedPendingRoomId, user.getId());
+		closeRoom(closedJoinedRoomId);
+		closeRoom(closedPendingRoomId);
+		String accessToken = jwtTokenProvider.createAccessToken(new AuthUser(user.getId()));
+
+		mockMvc.perform(get("/api/users/me")
+				.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.result.participatingRoomCount").value(1))
+			.andExpect(jsonPath("$.result.pendingRoomCount").value(1));
+	}
+
+	@Test
 	void 추가_프로필을_저장하면_회원가입이_완료된다() throws Exception {
 		User user = userRepository.save(User.createKakao(
 				"12345",
@@ -355,5 +431,9 @@ class UserControllerTest {
 			LocalDateTime.now(),
 			LocalDateTime.now()
 		);
+	}
+
+	private void closeRoom(Long roomId) {
+		jdbcTemplate.update("UPDATE rooms SET status = 'CLOSED' WHERE id = ?", roomId);
 	}
 }

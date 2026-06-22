@@ -26,6 +26,7 @@ import com.buddyduck.buddyduck.domain.schedule.entity.Schedule;
 import com.buddyduck.buddyduck.domain.schedule.entity.ScheduleSlot;
 import com.buddyduck.buddyduck.domain.schedule.enums.SlotCategory;
 import com.buddyduck.buddyduck.domain.schedule.enums.SlotType;
+import com.buddyduck.buddyduck.domain.schedule.exception.ScheduleErrorCode;
 import com.buddyduck.buddyduck.domain.schedule.repository.RouteSegmentRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleRepository;
 import com.buddyduck.buddyduck.domain.schedule.repository.ScheduleSlotRepository;
@@ -156,6 +157,7 @@ public class ScheduleService {
 			context.placesById()
 		);
 		DraftTimeline draftTimeline = buildDraftTimeline(context.schedule(), request, resolvedRouteSegments);
+		validateCommittable(draftTimeline);
 
 		return Objects.requireNonNull(transactionTemplate.execute(status -> saveDraft(
 			scheduleId,
@@ -164,6 +166,12 @@ public class ScheduleService {
 			draftTimeline,
 			resolvedRouteSegments
 		)));
+	}
+
+	private void validateCommittable(DraftTimeline draftTimeline) {
+		if (draftTimeline.overrunMinutes() > 0) {
+			throw new ProjectException(ScheduleErrorCode.SCHEDULE_OVERRUN);
+		}
 	}
 
 	private DraftCalculationContext loadDraftCalculationContext(
